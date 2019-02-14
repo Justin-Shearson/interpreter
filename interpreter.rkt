@@ -92,6 +92,26 @@
       [(eq? (car exp) '%) (remainder (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))])))
 
 
+; m_declare declares the variable its passed
+; Example: (m_declare 'a '(()())) => '((a)('null))
+; Example; (m_declare 'x '((a b c) (5 6 10))) => '((x a b c) (null 5 6 10))
+(define m_declare
+  (lambda (var m_state)
+    (cond
+      [(null? var) (error 'null_variable "Tried to declare a null variable")]
+      [(m_member var m_state)
+       (error 'declared_variable "Tried to declare an already declared variable")]
+      (else (cons (cons var (car m_state)) (list (cons 'null (cadr m_state))))))))
+
+
+;member is a helper function that just returns whether a variable is in the list
+(define m_member
+  (lambda (a m_state)
+    (cond
+      [(null? m_state) #f]
+      [(null? (car m_state)) #f]
+      [(eq? a (car (car m_state))) #t]
+      (else (m_member a (cons (cdar m_state) (cdr m_state)))))))
 ; Abstractions and definitions
 (define get_op car)
 (define left_operand cadr)
