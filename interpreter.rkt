@@ -19,11 +19,11 @@
   (lambda (expr state return)
     (cond
       [(null? expr) state]
-      [(eq? (get_operator expr) 'var) "Var"]
-      [(eq? (get_operator expr) '=) "Assign"]
-      [(eq? (get_operator expr) 'return) ]
-      [(eq? (get_operator expr) 'if) "If"]
-      [(eq? (get_operator expr) 'while) "While"])))
+      [(eq? (get_op expr) 'var) "Var"]
+      [(eq? (get_op expr) '=) "Assign"]
+      [(eq? (get_op expr) 'return) ]
+      [(eq? (get_op expr) 'if) "If"]
+      [(eq? (get_op expr) 'while) "While"])))
 
 
 ;It takes a parameter of a variable and the m_state and it returns a state
@@ -35,4 +35,4 @@
       [(eq? var (car (car state))) (car (car (cdr state)))]
       (else (m_value var (cons (cdar state) (list (cdadr state))))))))
 
-(define get_operator car)
+(define get_op car)
