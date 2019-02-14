@@ -7,6 +7,7 @@
     (cond
       [(null? condition) (error 'invalid "expression is empty")]
       [(boolean? condition) condition]
+      [(symbol? condition) (m_value condition state)]
       [(eq? (get_op condition) '&&) (and (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return))]
       [(eq? (get_op condition) '||) (or (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return))]
       [(eq? (get_op condition) '>=) (>= (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return))]
