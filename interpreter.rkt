@@ -91,7 +91,6 @@
       [(eq? (car exp) '*) (* (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
       [(eq? (car exp) '%) (remainder (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))])))
 
-
 ; m_declare declares the variable its passed
 ; Example: (m_declare 'a '(()())) => '((a)('null))
 ; Example; (m_declare 'x '((a b c) (5 6 10))) => '((x a b c) (null 5 6 10))
@@ -112,6 +111,32 @@
       [(null? (car m_state)) #f]
       [(eq? a (car (car m_state))) #t]
       (else (m_member a (cons (cdar m_state) (cdr m_state)))))))
+
+; m_initialize takes a variable, value and m_state and returns the m_state with the initialiazed variable
+; Example: (m_initialize 'x 14 '((x y z a) (null 2 3 4))) => ((x y z a) (14 2 3 4))
+(define m_initialize
+  (lambda (var val m_state)
+    (cond
+      [(null? m_state) (error 'null_state "m_state is null")]
+      [(m_member var m_state)
+       (if (eq? var (caar m_state))
+           (cons (car m_state) (list (cons val (cdadr m_state))))
+           (m_initialize var val (cons (cdar m_state) (list (cdadr m_state)))))]
+      (else (error 'assignment_error "The variable hasn't been declared ")))))
+
+; m_check_initialized checks if the variable has been initialized in the state
+; Example: (m_check_initialized 'f  '((x y z a)(null 2 3 4))) => #f
+; Example: (m_check_initialized 'x  '((x y z a)(null 2 3 4))) => #f
+; Example: (m_check_initialized 'y  '((x y z a)(null 2 3 4))) => #t
+(define m_check_initialized
+  (lambda (var m_state)
+    (if (m_member var m_state)
+        (if (eq? 'null (m_value var m_state))
+            #f
+            #t)
+        #f)))
+           
+
 ; Abstractions and definitions
 (define get_op car)
 (define left_operand cadr)
