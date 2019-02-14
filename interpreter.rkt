@@ -16,18 +16,50 @@
       [else (run_code (cdr parse_tree) (run_line (car parse_tree) state return) return)])))
 
 
-; run-line will run a line
+; run_line will run a line
 ; returns a state
+; Example: (run_line '((if (< x 10) (return 1) (return 2))) '((x)(1)) (lambda (v) v))
 (define run_line
-  (lambda (expr state return)
+  (lambda (expr m_state return)
     (cond
-      [(null? expr) state]
+      [(null? expr) m_state]
       [(eq? (get_op expr) 'var) "Var"]
       [(eq? (get_op expr) '=) "Assign"]
-      [(eq? (get_op expr) 'return) ]
-      [(eq? (get_op expr) 'if) "If"]
-      [(eq? (get_op expr) 'while) "While"])))
+      [(eq? (get_op expr) 'return) (m_return (cadr expr) m_state return)]
+      [(eq? (get_op expr) 'if) (m_if (cadr expr) (caddr expr) m_state return)]
+      [(eq? (get_op expr) 'while) (m_while (cadr expr) (caddr expr) m_state return)])))
 
+; m_return returns
+(define m_return
+  (lambda (expr m_state return)
+    (
+   
+
+; m_declare declares the variable its passed
+; Example: (m_declare 'a '(()())) => '((a)('null))
+; Example; (m_declare 'x '((a b c) (5 6 10))) => '((x a b c) (null 5 6 10))
+(define m_declare
+  (lambda (var m_state)
+    (cond
+      [(null? var) (error 'null_variable "Tried to declare a null variable")]
+      [(m_member var m_state)
+       (error 'declared_variable "Tried to declare an already declared variable")]
+      (else (cons (cons var (car m_state)) (list (cons 'null (cadr m_state))))))))
+    
+; m_while is a while loop
+(define m_while
+  (lambda (condition expr m_state return)
+    (if (eq? (m_bool condition expr return) #t)
+        (run_line expr m_state return) ; assume no side effects
+        (return m_state))))
+
+; m_if is an if statement
+; Example:
+(define m_if
+  (lambda (condition expr m_state return)
+    (if (eq? (m_bool condition expr return) #t)
+        (run_line expr m_state return) ; assume no side effects
+        (return m_state))))
 
 ; m_bool takes a condition and evaluates it
 ; returns true or false
