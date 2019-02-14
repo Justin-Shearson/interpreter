@@ -30,20 +30,31 @@
                                     (return (m_declare (cadr expr) m_state)))]
       [(eq? (get_op expr) '=) (m_initialize (cadr expr) (m_eval (caddr expr) m_state) m_state)]
       [(eq? (get_op expr) 'return) (m_return (cadr expr) m_state return)]
-      [(eq? (get_op expr) 'if) (m_if (cadr expr) (caddr expr) (cadddr expr) m_state return)]
+      [(eq? (get_op expr) 'if) (if (pair? (cdddr expr))
+                                   (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return)
+                                   (m_if (cadr expr) (caddr expr) m_state return))]
       [(eq? (get_op expr) 'while) (m_while (cadr expr) (caddr expr) m_state return)])))
 
 
 ; m_while is a while loop
 (define m_while
-  (lambda (condition expr1 expr2 m_state return)
+  (lambda (condition expr m_state return)
     (if (eq? (m_bool condition m_state return) #t)
-        (run_line expr1 m_state return) ; assume no side effects
-        (return (run_line expr2 m_state return)))))
+        (m_while condition expr (run_line expr m_state return) return) ; assume no side effects
+        (return m_state))))
 
 ; m_if is an if statement
 ; Example:
 (define m_if
+  (lambda (condition expr1 m_state return)
+    (if (eq? (m_bool condition m_state return) #t)
+        (run_line expr1 m_state return) ; assume no side effects
+        (return m_state))))
+
+
+; m_if is an if-else statement
+; Example:
+(define m_if_else
   (lambda (condition expr1 expr2 m_state return)
     (if (eq? (m_bool condition m_state return) #t)
         (run_line expr1 m_state return) ; assume no side effects
@@ -121,6 +132,10 @@
     (cond
       [(null? condition)
        (error 'invalid "expression is empty")]
+      [(and (symbol? condition) (eq? condition 'true))
+       (#t)]
+      [(and (symbol? condition) (eq? condition 'false))
+       (#f)]
       [(symbol? condition)
        (m_value condition m_state)]
       [(or (number? condition) (boolean? condition))
@@ -165,14 +180,24 @@
 (define m_eval
   (lambda (exp m_state)
     (cond
-      [(null? exp) (error 'null_expression "Expression is null")]
-      [(number? exp) exp]
-      [(symbol? exp) (m_value exp m_state)]
-      [(eq? (car exp) '+) (+ (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
-      [(eq? (car exp) '-) (- (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
-      [(eq? (car exp) '/) (quotient (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
-      [(eq? (car exp) '*) (* (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
-      [(eq? (car exp) '%) (remainder (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))])))
+      [(null? exp)
+       (error 'null_expression "Expression is null")]
+      [(number? exp)
+       exp]
+      [(symbol? exp)
+       (m_value exp m_state)]
+      [(eq? (get_op exp) '+)
+       (+ (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
+      [(eq? (get_op exp) '-)
+       (if (pair? (cddr exp))
+           (- (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))
+           (* -1 (m_eval (left_operand exp) m_state)))] ; must check for unary -
+      [(eq? (get_op exp) '/)
+       (quotient (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
+      [(eq? (get_op exp) '*)
+       (* (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
+      [(eq? (get_op exp) '%)
+       (remainder (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))])))
 
 
 ; Abstractions and definitions
