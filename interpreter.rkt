@@ -1,10 +1,17 @@
 #lang racket
+(provide (all-defined-out))
 (require "simpleParser.rkt")
 
 ; The overarching method interpret
 (define interpret
   (lambda (file_name)
-    (run_code (parser file_name) '((return)(null)) (lambda (v) v))))
+    (run_code (parser file_name)
+              '((return)(null))
+              (lambda (v)
+                (cond
+                  [(eq? v #t) 'true]
+                  [(eq? v #f) 'false]
+                  [else v])))))
 
 
 ; run_code will run code until a return or until end of file
@@ -133,9 +140,9 @@
       [(null? condition)
        (error 'invalid "expression is empty")]
       [(and (symbol? condition) (eq? condition 'true))
-       (#t)]
+       #t]
       [(and (symbol? condition) (eq? condition 'false))
-       (#f)]
+       #f]
       [(symbol? condition)
        (m_value condition m_state)]
       [(or (number? condition) (boolean? condition))
@@ -184,6 +191,10 @@
        (error 'null_expression "Expression is null")]
       [(number? exp)
        exp]
+      [(and (symbol? exp) (eq? exp 'true))
+       #t]
+      [(and (symbol? exp) (eq? exp 'false))
+       #f]
       [(symbol? exp)
        (m_value exp m_state)]
       [(eq? (get_op exp) '+)
@@ -197,7 +208,8 @@
       [(eq? (get_op exp) '*)
        (* (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
       [(eq? (get_op exp) '%)
-       (remainder (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))])))
+       (remainder (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
+      [else (m_bool exp m_state (lambda (v) v))])))
 
 
 ; Abstractions and definitions
