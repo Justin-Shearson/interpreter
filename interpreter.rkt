@@ -136,7 +136,7 @@
     (cond
       [(null? m_state) #f]
       [(null? (car m_state)) #f]
-      [(eq? a (car (car m_state))) #t]
+      [(eq? a (caar m_state)) #t]
       (else (s_member a (cons (cdar m_state) (cdr m_state)))))))
 
 ; It takes a parameter of a variable and the m_state
@@ -243,7 +243,7 @@
       [(check_operator condition) (m_eval condition m_state)]
       [else (error 'Invalid_eval "The condition contains an illegal comparison or operator")])))
 
-;
+; checks if the operator is a mathematical operator
 (define check_operator
   (lambda (exp)
     (cond
@@ -255,16 +255,7 @@
       (else #f))))
 
 
-
-
-
-
-
-
-
-
-
-; Abstractions and definitions
+; Abstractions for m_eval and m_bool
 (define get_op car)
 (define left_operand cadr)
 (define right_operand caddr)
