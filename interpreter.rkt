@@ -8,7 +8,7 @@
 ;;;; Interpreter Part 1
 ;;;; ***************************************************
 
-; The overarching method interpret
+; The highest-level function, interpret
 (define interpret
   (lambda (file_name)
     (run_code (parser file_name)
@@ -94,8 +94,7 @@
       [(null? var) (error 'null_variable "Tried to declare a null variable")]
       [(s_member var m_state)
        (error 'declared_variable "Tried to redefine an already declared variable")]
-      (else (cons (cons var (car m_state)) (list (cons val (cadr m_state))))))))
-
+      (else (s_assignvalue var val m_state)))))
 
 ; m_declare declares the variable its passed
 ; Example: (m_declare 'a '(()())) => '((a)('null))
@@ -106,7 +105,7 @@
       [(null? var) (error 'null_variable "Tried to declare a null variable")]
       [(s_member var m_state)
        (error 'declared_variable "Tried to declare an already declared variable")]
-      (else (cons (cons var (car m_state)) (list (cons 'null (cadr m_state))))))))
+      (else (s_declare var m_state)))))
 
 ; m_initialize takes a variable, value and m_state and returns the m_state with the initialiazed variable
 ; Example: (m_initialize 'x 14 '((x y z a) (null 2 3 4))) => ((x y z a) (14 2 3 4))
@@ -115,9 +114,7 @@
     (cond
       [(null? m_state) (error 'null_state "m_state is null")]
       [(s_member var m_state)
-       (if (eq? var (caar m_state))
-           (cons (car m_state) (list (cons val (cdadr m_state))))
-           (m_initialize var val (cons (cdar m_state) (list (cdadr m_state)))))]
+       (s_setvalue var val m_state)]
       (else (error 'assignment_error "The variable hasn't been declared (initialization before declaration)")))))
 
 ; It takes a parameter of a variable and the m_state
@@ -125,11 +122,50 @@
 ; Example: (m_value 'x '((a b c x) (1 2 3 4))) returns 4
 (define m_value
   (lambda (var m_state)
+    (s_value var m_state)))
+
+;;;; **********************************************************
+;;;;
+;;;; Abstracted helper functions for the m_state
+;;;;
+;;;; **********************************************************
+
+; s_member is a helper function that just returns whether a variable is in the list
+(define s_member
+  (lambda (a m_state)
+    (cond
+      [(null? m_state) #f]
+      [(null? (car m_state)) #f]
+      [(eq? a (car (car m_state))) #t]
+      (else (s_member a (cons (cdar m_state) (cdr m_state)))))))
+
+; It takes a parameter of a variable and the m_state
+; returns a state
+; Example: (m_value 'x '((a b c x) (1 2 3 4))) returns 4
+(define s_value
+  (lambda (var m_state)
     (cond
       [(and (null? (car  m_state)) (pair? (cdr m_state))) (error 'undefined_var "The variable hasn't been declared (using before declaring)")]
       [(and (not (eq? var 'return)) (eq? var (caar m_state)) (eq? (caadr m_state) 'null)) (error 'undefined_var "The variable hasn't been initialized (use before assignment)")]
       [(eq? var (caar m_state)) (caar (cdr m_state))]
-      (else (m_value var (cons (cdar m_state) (list (cdadr m_state))))))))
+      (else (s_value var (cons (cdar m_state) (list (cdadr m_state))))))))
+
+; s_setvalue
+(define s_setvalue
+  (lambda (var val m_state)
+    (if (eq? var (caar m_state))
+           (cons (car m_state) (list (cons val (cdadr m_state))))
+           (s_setvalue var val (cons (cdar m_state) (list (cdadr m_state)))))))
+
+; s_assignvalue
+(define s_assignvalue
+  (lambda (var val m_state)
+    (cons (cons var (car m_state)) (list (cons val (cadr m_state))))))
+
+; s_declare
+(define s_declare
+  (lambda (var m_state)
+    (cons (cons var (car m_state)) (list (cons 'null (cadr m_state))))))
 
 ;;;; **********************************************************
 ;;;;
@@ -218,20 +254,7 @@
       [(eq? (get_op exp) '%) #t]
       (else #f))))
 
-;;;; **********************************************************
-;;;;
-;;;; Abstracted helper functions for the m_state
-;;;;
-;;;; **********************************************************
 
-; s_member is a helper function that just returns whether a variable is in the list
-(define s_member
-  (lambda (a m_state)
-    (cond
-      [(null? m_state) #f]
-      [(null? (car m_state)) #f]
-      [(eq? a (car (car m_state))) #t]
-      (else (s_member a (cons (cdar m_state) (cdr m_state)))))))
 
 
 
