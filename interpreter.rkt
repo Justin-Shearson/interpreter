@@ -81,7 +81,7 @@
     (cond
       [(null? var) (error 'null_variable "Tried to declare a null variable")]
       [(m_member var m_state)
-       (error 'declared_variable "Tried to declare an already declared variable")]
+       (error 'declared_variable "Tried to redefine an already declared variable")]
       (else (cons (cons var (car m_state)) (list (cons val (cadr m_state))))))))
 
 
@@ -116,7 +116,7 @@
        (if (eq? var (caar m_state))
            (cons (car m_state) (list (cons val (cdadr m_state))))
            (m_initialize var val (cons (cdar m_state) (list (cdadr m_state)))))]
-      (else (error 'assignment_error "The variable hasn't been declared ")))))
+      (else (error 'assignment_error "The variable hasn't been declared (initialization before declaration)")))))
 
 ; m_check_initialized checks if the variable has been initialized in the state
 ; Example: (m_check_initialized 'f  '((x y z a)(null 2 3 4))) => #f
@@ -165,18 +165,27 @@
        (not (eq? (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return)))]
       [(eq? (get_op condition) '!)
        (not (m_bool (left_operand condition) m_state return))]
-      [else
-       (m_eval condition m_state)])))
-      
+      [(check_operator condition) (m_eval condition m_state)]
+      [else (error 'Invalid_eval "The condition contains an illegal comparison or operator")])))
 
+(define check_operator
+  (lambda (exp)
+    (cond
+      [(eq? (get_op exp) '+) #t]
+      [(eq? (get_op exp) '-) #t]
+      [(eq? (get_op exp) '*) #t]
+      [(eq? (get_op exp) '/) #t]
+      [(eq? (get_op exp) '%) #t]
+      (else #f))))
 ; It takes a parameter of a variable and the m_state
 ; returns a state
 ; Example: (m_value 'x '((a b c x) (1 2 3 4))) returns 4
 (define m_value
   (lambda (var m_state)
     (cond
-      [(null? m_state) (error 'undefined_var "Variable is undefined")]
-      [(eq? var (car (car m_state))) (car (car (cdr m_state)))]
+      [(and (null? (car  m_state)) (pair? (cdr m_state))) (error 'undefined_var "The variable hasn't been declared (using before declaring)")]
+      [(and (not (eq? var 'return)) (eq? var (caar m_state)) (eq? (caadr m_state) 'null)) (error 'undefined_var "The variable hasn't been initialized (use before assignment)")]
+      [(eq? var (caar m_state)) (caar (cdr m_state))]
       (else (m_value var (cons (cdar m_state) (list (cdadr m_state))))))))
 
 
@@ -210,7 +219,6 @@
       [(eq? (get_op exp) '%)
        (remainder (m_eval (left_operand exp) m_state) (m_eval (right_operand exp) m_state))]
       [else (m_bool exp m_state (lambda (v) v))])))
-
 
 ; Abstractions and definitions
 (define get_op car)
