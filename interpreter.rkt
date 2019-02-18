@@ -81,7 +81,7 @@
     (cond
       [(null? var) (error 'null_variable "Tried to declare a null variable")]
       [(m_member var m_state)
-       (error 'declared_variable "Tried to declare an already declared variable")]
+       (error 'declared_variable "Tried to redefine an already declared variable")]
       (else (cons (cons var (car m_state)) (list (cons val (cadr m_state))))))))
 
 
@@ -116,7 +116,7 @@
        (if (eq? var (caar m_state))
            (cons (car m_state) (list (cons val (cdadr m_state))))
            (m_initialize var val (cons (cdar m_state) (list (cdadr m_state)))))]
-      (else (error 'assignment_error "The variable hasn't been declared ")))))
+      (else (error 'assignment_error "The variable hasn't been declared (initialization before declaration)")))))
 
 ; m_check_initialized checks if the variable has been initialized in the state
 ; Example: (m_check_initialized 'f  '((x y z a)(null 2 3 4))) => #f
@@ -183,8 +183,9 @@
 (define m_value
   (lambda (var m_state)
     (cond
-      [(null? m_state) (error 'undefined_var "Variable is undefined")]
-      [(eq? var (car (car m_state))) (car (car (cdr m_state)))]
+      [(and (null? (car  m_state)) (pair? (cdr m_state))) (error 'undefined_var "The variable hasn't been declared (using before declaring)")]
+      [(and (not (eq? var 'return)) (eq? var (caar m_state)) (eq? (caadr m_state) 'null)) (error 'undefined_var "The variable hasn't been initialized (use before assignment)")]
+      [(eq? var (caar m_state)) (caar (cdr m_state))]
       (else (m_value var (cons (cdar m_state) (list (cdadr m_state))))))))
 
 
