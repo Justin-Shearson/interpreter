@@ -8,7 +8,7 @@
 ;;;; Interpreter Part 1
 ;;;; ***************************************************
 
-; The highest-level function, interpret
+;; The highest-level function, interpret
 (define interpret
   (lambda (file_name)
     (run_code (parser file_name)
@@ -20,7 +20,7 @@
                   [else v])))))
 
 
-; run_code will run code until a return or until end of file
+;; run_code will run code until a return or until end of file
 (define run_code
   (lambda (parse_tree state return)
     (cond
@@ -29,11 +29,11 @@
       [else (run_code (cdr parse_tree) (run_line (car parse_tree) state return) return)])))
 
 
-; run_line will run a line
-; returns a state
-; Example: (run_line '((if (< x 10) (return 1) (return 2))) '((x)(1)) (lambda (v) v))
-; Example: (run_line '(var x) '((return) (null)) (lambda (v) v)) => '((x return) (null null))
-; Example: (run_line '(= x 4) '((x return) (null null)) (lambda (v) v)) => '((x return) (4 null))
+;; run_line will run a line
+;; returns a state
+;; Example: (run_line '((if (< x 10) (return 1) (return 2))) '((x)(1)) (lambda (v) v))
+;; Example: (run_line '(var x) '((return) (null)) (lambda (v) v)) => '((x return) (null null))
+;; Example: (run_line '(= x 4) '((x return) (null null)) (lambda (v) v)) => '((x return) (4 null))
 (define run_line
   (lambda (expr m_state return)
     (cond
@@ -49,15 +49,15 @@
       [(eq? (get_op expr) 'while) (m_while (cadr expr) (caddr expr) m_state return)])))
 
 
-; m_while is a while loop
+;; m_while is a while loop
 (define m_while
   (lambda (condition expr m_state return)
     (if (eq? (m_bool condition m_state return) #t)
         (m_while condition expr (run_line expr m_state return) return) ; assume no side effects
         (return m_state))))
 
-; m_if is an if statement
-; Example:
+;; m_if is an if statement
+;; Example:
 (define m_if
   (lambda (condition expr1 m_state return)
     (if (eq? (m_bool condition m_state return) #t)
@@ -65,15 +65,15 @@
         (return m_state))))
 
 
-; m_if is an if-else statement
-; Example:
+;; m_if is an if-else statement
+;; Example:
 (define m_if_else
   (lambda (condition expr1 expr2 m_state return)
     (if (eq? (m_bool condition m_state return) #t)
         (run_line expr1 m_state return) ; assume no side effects
         (return (run_line expr2 m_state return)))))
 
-; m_return returns
+;; m_return returns
 (define m_return
   (lambda (expr m_state return)
     (m_initialize 'return (m_eval expr m_state) m_state)))
@@ -85,9 +85,9 @@
 ;;;;
 ;;;; **********************************************************
 
-; m_assign declares the variable its passed and assigns it to the given value
-; Example: (m_assign 'a '(()())) => '((a)('null))
-; Example; (m_assign 'x '((a b c) (5 6 10))) => '((x a b c) (null 5 6 10))
+;; m_assign declares the variable its passed and assigns it to the given value
+;; Example: (m_assign 'a '(()())) => '((a)('null))
+;; Example; (m_assign 'x '((a b c) (5 6 10))) => '((x a b c) (null 5 6 10))
 (define m_assign
   (lambda (var val m_state)
     (cond
@@ -96,9 +96,9 @@
        (error 'declared_variable "Tried to redefine an already declared variable")]
       (else (s_assignvalue var val m_state)))))
 
-; m_declare declares the variable its passed
-; Example: (m_declare 'a '(()())) => '((a)('null))
-; Example; (m_declare 'x '((a b c) (5 6 10))) => '((x a b c) (null 5 6 10))
+;; m_declare declares the variable its passed
+;; Example: (m_declare 'a '(()())) => '((a)('null))
+;; Example; (m_declare 'x '((a b c) (5 6 10))) => '((x a b c) (null 5 6 10))
 (define m_declare
   (lambda (var m_state)
     (cond
@@ -107,8 +107,8 @@
        (error 'declared_variable "Tried to declare an already declared variable")]
       (else (s_declare var m_state)))))
 
-; m_initialize takes a variable, value and m_state and returns the m_state with the initialiazed variable
-; Example: (m_initialize 'x 14 '((x y z a) (null 2 3 4))) => ((x y z a) (14 2 3 4))
+;; m_initialize takes a variable, value and m_state and returns the m_state with the initialiazed variable
+;; Example: (m_initialize 'x 14 '((x y z a) (null 2 3 4))) => ((x y z a) (14 2 3 4))
 (define m_initialize
   (lambda (var val m_state)
     (cond
@@ -117,9 +117,9 @@
        (s_setvalue var val m_state)]
       (else (error 'assignment_error "The variable hasn't been declared (initialization before declaration)")))))
 
-; It takes a parameter of a variable and the m_state
-; returns a state
-; Example: (m_value 'x '((a b c x) (1 2 3 4))) returns 4
+;; It takes a parameter of a variable and the m_state
+;; returns a state
+;; Example: (m_value 'x '((a b c x) (1 2 3 4))) returns 4
 (define m_value
   (lambda (var m_state)
     (s_value var m_state)))
@@ -130,7 +130,7 @@
 ;;;;
 ;;;; **********************************************************
 
-; s_member is a helper function that just returns whether a variable is in the list
+;; s_member is a helper function that just returns whether a variable is in the list
 (define s_member
   (lambda (a m_state)
     (cond
@@ -139,9 +139,9 @@
       [(eq? a (caar m_state)) #t]
       (else (s_member a (cons (cdar m_state) (cdr m_state)))))))
 
-; It takes a parameter of a variable and the m_state
-; returns a state
-; Example: (m_value 'x '((a b c x) (1 2 3 4))) returns 4
+;; It takes a parameter of a variable and the m_state
+;; returns a state
+;; Example: (m_value 'x '((a b c x) (1 2 3 4))) returns 4
 (define s_value
   (lambda (var m_state)
     (cond
@@ -150,19 +150,19 @@
       [(eq? var (caar m_state)) (caar (cdr m_state))]
       (else (s_value var (cons (cdar m_state) (list (cdadr m_state))))))))
 
-; s_setvalue
+;; s_setvalue
 (define s_setvalue
   (lambda (var val m_state)
     (if (eq? var (caar m_state))
            (cons (car m_state) (list (cons val (cdadr m_state))))
            (s_setvalue var val (cons (cdar m_state) (list (cdadr m_state)))))))
 
-; s_assignvalue
+;; s_assignvalue
 (define s_assignvalue
   (lambda (var val m_state)
     (cons (cons var (car m_state)) (list (cons val (cadr m_state))))))
 
-; s_declare
+;; s_declare
 (define s_declare
   (lambda (var m_state)
     (cons (cons var (car m_state)) (list (cons 'null (cadr m_state))))))
@@ -173,10 +173,10 @@
 ;;;;
 ;;;; **********************************************************
 
-; m_eval takes a mathematical expression and evaluates it
-; returns the output value
-; Example: (m_eval '(+ (* (+ 4 5) 3) 3) '(()())) => 30
-; Example: (m_eval '(+ (* (+ x y) 5) z) '((x y z)(1 2 3))) => 18
+;; m_eval takes a mathematical expression and evaluates it
+;; returns the output value
+;; Example: (m_eval '(+ (* (+ 4 5) 3) 3) '(()())) => 30
+;; Example: (m_eval '(+ (* (+ x y) 5) z) '((x y z)(1 2 3))) => 18
 (define m_eval
   (lambda (exp m_state)
     (cond
@@ -205,10 +205,10 @@
       [else (m_bool exp m_state (lambda (v) v))])))
 
 
-; m_bool takes a condition and evaluates it
-; returns true or false
-; Example: (m_bool '(> (* x (+ x x)) y) '((x y)(2 7)) (lambda (v) v)) => #t
-; Example: (m_bool '(> (* x (+ x x)) y) '((x y)(2 9)) (lambda (v) v)) => #f
+;; m_bool takes a condition and evaluates it
+;; returns true or false
+;; Example: (m_bool '(> (* x (+ x x)) y) '((x y)(2 7)) (lambda (v) v)) => #t
+;; Example: (m_bool '(> (* x (+ x x)) y) '((x y)(2 9)) (lambda (v) v)) => #f
 (define m_bool
   (lambda (condition m_state return)
     (cond
@@ -243,7 +243,7 @@
       [(check_operator condition) (m_eval condition m_state)]
       [else (error 'Invalid_eval "The condition contains an illegal comparison or operator")])))
 
-; checks if the operator is a mathematical operator
+;; checks if the operator is a mathematical operator
 (define check_operator
   (lambda (exp)
     (cond
@@ -255,7 +255,7 @@
       (else #f))))
 
 
-; Abstractions for m_eval and m_bool
+;; Abstractions for m_eval and m_bool
 (define get_op car)
 (define left_operand cadr)
 (define right_operand caddr)
