@@ -138,6 +138,19 @@
 ;;;;
 ;;;; **********************************************************
 
+;; A helper function that adds a new layer to the state
+(define addLayer
+  (lambda (m_state)
+    (if (null? m_state)
+      '(()())
+      (cons '(()()) (list m_state)))))
+
+(define removeLayer
+  (lambda (m_state)
+    (if (null? m_state)
+        '(()())
+        (cadr m_state))))
+
 ;; A helper function that just returns whether a variable is in the list
 (define s_member
   (lambda (a m_state)
@@ -166,7 +179,7 @@
   (lambda (var val m_state)
     (if (eq? var (caar m_state))
            (cons (car m_state) (list (cons val (cdadr m_state))))
-           (s_initvalue var val (cons (cdar m_state) (list (cdadr m_state)))))))
+           (s_initvalue (caar m_state) (caadr m_state) (s_declare (caar m_state) (s_initvalue var val (cons (cdar m_state) (list (cdadr m_state)))))))))
 
 ;; Declares and initializes variable to the value input
 (define s_assignvalue
