@@ -170,7 +170,7 @@
        #f])))
 
 ;; A helper function that just returns whether a variable is in the list
-(define s_member
+(define s_member_layer
   (lambda (a m_state)
     (cond
       [(s_layer m_state)      (s_member a (car m_state)) ]
@@ -178,7 +178,14 @@
       [(null? (car m_state))  #f]
       [(eq? a (caar m_state)) #t]
       (else                   (s_member a (cons (cdar m_state) (cdr m_state)))))))
-
+(define s_member
+  (lambda (a m_state)
+    (cond
+      [(s_layer m_state)      (or (s_member a (car m_state))(s_member a (cdr m_state))) ]
+      [(null? m_state)        #f]
+      [(null? (car m_state))  #f]
+      [(eq? a (caar m_state)) #t]
+      (else                   (s_member a (cons (cdar m_state) (cdr m_state)))))))
 
 ;; It takes a parameter of a variable and the m_state and
 ;;  returns a state
@@ -186,7 +193,11 @@
 (define s_value
   (lambda (var m_state)
     (cond
-      [(s_layer m_state) (s_value var (car m_state))]
+      [(s_layer m_state)
+       (if (s_member_layer var (car m_state))
+           (s_value var (car m_state))
+           (s_value var (cadr m_state)))
+           ]
       [(and (null? (car  m_state)) (pair? (cdr m_state)))
        (error 'undefined_var "The variable hasn't been declared (using before declaring)")]
       [(and (not (eq? var 'return)) (eq? var (caar m_state)) (eq? (caadr m_state) 'null))
@@ -199,7 +210,7 @@
 (define s_initvalue
   (lambda (var val m_state)
     (if (s_layer m_state)
-        (if (s_member var (car m_state))
+        (if (s_member_layer var (car m_state))
             (cons (s_initvalue var val (car m_state)) (cdr m_state))
             (cons (car m_state) (list (s_initvalue var val (cdr m_state)))))
         (if (eq? var (caar m_state))
