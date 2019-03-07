@@ -47,11 +47,15 @@
       [(eq? (get_op expr) 'if) (if (pair? (cdddr expr))
                                     (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return break)
                                     (m_if (cadr expr) (caddr expr) m_state return break))]
-      [(eq? (get_op expr) 'while)   (m_while (cadr expr) (caddr expr) m_state return break)]
+      [(eq? (get_op expr) 'while)   (if (and (pair? (cadr expr)) (eq? (get_op (caddr expr)) 'begin))
+                                        (call/cc
+                                         (lambda (k)
+                                           (m_while (cadr expr) (cdaddr expr) (removeLayer (run_code (cdaddr expr) (addLayer m_state) return k)) return k)))
+                                        (m_while (cadr expr) (caddr expr) m_state return break))]
       [(eq? (get_op expr) 'begin)   (removeLayer
                                      (call/cc
-                                      (lambda (v)
-                                        (run_code (cdr expr) (addLayer m_state) return v))))]
+                                      (lambda (k)
+                                        (run_code (cdr expr) (addLayer m_state) return k))))]
       [(eq? (get_op expr) 'break)   (break m_state)])))
 
 
