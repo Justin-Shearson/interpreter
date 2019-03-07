@@ -82,7 +82,7 @@
 (define m_return
   (lambda (expr m_state return)
     (m_initialize 'return (m_eval expr m_state) m_state)))
-   
+
 ;;;; **********************************************************
 ;;;;
 ;;;; Main assignment, declaration, initialization, and value-
