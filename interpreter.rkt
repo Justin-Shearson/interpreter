@@ -26,7 +26,7 @@
   (lambda (parse_tree state return break)
     (cond
       [(not (eq? (m_value 'return state) 'null)) (return (m_value 'return state))] ; check if there is something to return
-      [(null? parse_tree) "Code run, nothing returned"]
+      [(null? parse_tree) state] ;; Code may have been run with no return, will just return state
       [else (run_code (cdr parse_tree) (run_line (car parse_tree) state return break) return break)])))
 
 
@@ -48,9 +48,10 @@
                                     (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return break)
                                     (m_if (cadr expr) (caddr expr) m_state return break))]
       [(eq? (get_op expr) 'while)   (m_while (cadr expr) (caddr expr) m_state return break)]
-      [(eq? (get_op expr) 'begin)   (removeLayer (call/cc
-                                     (lambda (v)
-                                       (run_code (cdr expr) (addLayer m_state) return v))))]
+      [(eq? (get_op expr) 'begin)   (removeLayer
+                                     (call/cc
+                                      (lambda (v)
+                                        (run_code (cdr expr) (addLayer m_state) return v))))]
       [(eq? (get_op expr) 'break)   (break m_state)])))
 
 
@@ -181,7 +182,7 @@
 (define s_member
   (lambda (a m_state)
     (cond
-      [(s_layer m_state)      (or (s_member a (car m_state))(s_member a (cdr m_state))) ]
+      [(s_layer m_state)      (or (s_member a (car m_state))(s_member a (cadr m_state))) ]
       [(null? m_state)        #f]
       [(null? (car m_state))  #f]
       [(eq? a (caar m_state)) #t]
@@ -212,7 +213,7 @@
     (if (s_layer m_state)
         (if (s_member_layer var (car m_state))
             (cons (s_initvalue var val (car m_state)) (cdr m_state))
-            (cons (car m_state) (list (s_initvalue var val (cdr m_state)))))
+            (cons (car m_state) (s_initvalue var val (cdr m_state))))
         (if (eq? var (caar m_state))
             (cons (car m_state) (list (cons val (cdadr m_state))))
             (s_initvalue (caar m_state) (caadr m_state) (s_declare (caar m_state) (s_initvalue var val (cons (cdar m_state) (list (cdadr m_state))))))))))
