@@ -156,14 +156,29 @@
         '(()())
         (cadr m_state))))
 
+;;Helper function that returns true if there exists a sublayer false if there isn't a layer 
+(define s_layer
+  (lambda (m_state)
+    (cond
+      [(list? (car m_state))
+       (if (null? (car m_state))
+           #f
+           (if (list? (caar m_state))
+               #t
+               #f))]
+      [else
+       #f])))
+
 ;; A helper function that just returns whether a variable is in the list
 (define s_member
   (lambda (a m_state)
     (cond
+      [(s_layer m_state)      (s_member a (car m_state)) ]
       [(null? m_state)        #f]
       [(null? (car m_state))  #f]
       [(eq? a (caar m_state)) #t]
       (else                   (s_member a (cons (cdar m_state) (cdr m_state)))))))
+
 
 ;; It takes a parameter of a variable and the m_state and
 ;;  returns a state
@@ -171,6 +186,7 @@
 (define s_value
   (lambda (var m_state)
     (cond
+      [(s_layer m_state) (s_value var (car m_state))]
       [(and (null? (car  m_state)) (pair? (cdr m_state)))
        (error 'undefined_var "The variable hasn't been declared (using before declaring)")]
       [(and (not (eq? var 'return)) (eq? var (caar m_state)) (eq? (caadr m_state) 'null))
@@ -182,19 +198,27 @@
 ;; Sets the value of the already declared variable in the state
 (define s_initvalue
   (lambda (var val m_state)
-    (if (eq? var (caar m_state))
-           (cons (car m_state) (list (cons val (cdadr m_state))))
-           (s_initvalue (caar m_state) (caadr m_state) (s_declare (caar m_state) (s_initvalue var val (cons (cdar m_state) (list (cdadr m_state)))))))))
+    (if (s_layer m_state)
+        (if (s_member var (car m_state))
+            (cons (s_initvalue var val (car m_state)) (cdr m_state))
+            (cons (car m_state) (list (s_initvalue var val (cdr m_state)))))
+        (if (eq? var (caar m_state))
+            (cons (car m_state) (list (cons val (cdadr m_state))))
+            (s_initvalue (caar m_state) (caadr m_state) (s_declare (caar m_state) (s_initvalue var val (cons (cdar m_state) (list (cdadr m_state))))))))))
 
 ;; Declares and initializes variable to the value input
 (define s_assignvalue
   (lambda (var val m_state)
-    (cons (cons var (car m_state)) (list (cons val (cadr m_state))))))
+    (if (s_layer m_state)
+        (cons (s_assignvalue var val (car m_state)) (cdr m_state))
+        (cons (cons var (car m_state)) (list (cons val (cadr m_state)))))))
 
 ;; Declares a variable and sets its initial value to 'null
 (define s_declare
   (lambda (var m_state)
-    (cons (cons var (car m_state)) (list (cons 'null (cadr m_state))))))
+    (if (s_layer m_state)
+        (cons (s_declare var (car m_state)) (cdr m_state))
+        (cons (cons var (car m_state)) (list (cons 'null (cadr m_state)))))))
 
 ;;;; **********************************************************
 ;;;;
