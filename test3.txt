@@ -1,8 +1,8 @@
 var x = 10;
-{
-  var y = 2;
-  var z = x * y;
-  break;
-  x = z;
+var y = 4;
+if (x < y) {
+  var min = x;
 }
-return x;
+else {
+  var min = y;
+}

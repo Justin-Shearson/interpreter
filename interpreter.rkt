@@ -46,8 +46,12 @@
       [(eq? (get_op expr) '=) (m_initialize (cadr expr) (m_eval (caddr expr) m_state) m_state)]
       [(eq? (get_op expr) 'return) (m_return (cadr expr) m_state return)]
       [(eq? (get_op expr) 'if) (if (pair? (cdddr expr))
-                                    (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return break)
-                                    (m_if (cadr expr) (caddr expr) m_state return break))]
+                                    (call/cc
+                                     (lambda (k)
+                                       (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return k continue)))
+                                    (call/cc
+                                     (lambda (k)
+                                       (m_if (cadr expr) (caddr expr) m_state return k continue))))]
       [(eq? (get_op expr) 'while)   (call/cc
                                          (lambda (k)
                                            (m_while (cadr expr) (caddr expr) m_state return k continue)))]
@@ -73,9 +77,9 @@
 ;; Returns the state of the expression within the body
 ;; Otherwise return the current m_state
 (define m_if
-  (lambda (condition expr1 m_state return break)
+  (lambda (condition expr1 m_state return break continue)
     (if (eq? (m_bool condition m_state return) #t)
-        (run_line expr1 m_state return break) ; assume no side effects
+        (run_line expr1 m_state return break continue) ; assume no side effects
         (return m_state))))
 
 
@@ -83,10 +87,10 @@
 ;; If the condition is true, return the state given by the expression
 ;; Otherwise returns the m_state of the expression within the else condition
 (define m_if_else
-  (lambda (condition expr1 expr2 m_state return break)
+  (lambda (condition expr1 expr2 m_state return break continue)
     (if (eq? (m_bool condition m_state return) #t)
-        (run_line expr1 m_state return break) ; assume no side effects
-        (return (run_line expr2 m_state return break)))))
+        (run_line expr1 m_state return break continue) ; assume no side effects
+        (return (run_line expr2 m_state return break continue)))))
 
 ;; Sets the return variable in m_state to the result of expr
 (define m_return
@@ -217,7 +221,7 @@
     (if (s_layer m_state)
         (if (s_member_layer var (car m_state))
             (cons (s_initvalue var val (car m_state)) (cdr m_state))
-            (cons (car m_state) (s_initvalue var val (cdr m_state))))
+            (cons (car m_state) (list (s_initvalue var val (cadr m_state)))))
         (if (eq? var (caar m_state))
             (cons (car m_state) (list (cons val (cdadr m_state))))
             (s_initvalue (caar m_state) (caadr m_state) (s_declare (caar m_state) (s_initvalue var val (cons (cdar m_state) (list (cdadr m_state))))))))))
