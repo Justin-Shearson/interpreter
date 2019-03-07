@@ -4,4 +4,3 @@ var x = 10;
   var z = x * y;
   x = z;
 }
-return x;
