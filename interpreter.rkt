@@ -11,22 +11,23 @@
 ;; The highest-level function, interpret
 (define interpret
   (lambda (file_name)
-    (run_code (parser file_name)
+    (call/cc
+     (lambda (k)
+       (run_code (parser file_name)
               '((return)(null))
-              (lambda (v)
-                (cond
-                  [(eq? v #t) 'true]
-                  [(eq? v #f) 'false]
-                  [else v]))
+              k
               (lambda (v) v)
-              (lambda (v) v))))
+              (lambda (v) v))))))
 
 
 ;; run_code will execute all the code within the parse tree
 (define run_code
   (lambda (parse_tree state return break continue)
     (cond
-      [(not (eq? (m_value 'return state) 'null)) (return (m_value 'return state))] ; check if there is something to return
+      [(not (eq? (m_value 'return state) 'null)) (return (cond
+                                                           [(eq? (m_value 'return state) #t) 'true]
+                                                           [(eq? (m_value 'return state) #f) 'false]
+                                                           [else (m_value 'return state)]))] ; check if there is something to return
       [(null? parse_tree) state] ;; Code may have been run with no return, will just return state
       [else (run_code (cdr parse_tree) (run_line (car parse_tree) state return break continue) return break continue)])))
 
@@ -41,8 +42,8 @@
     (cond
       [(null? expr) m_state]
       [(eq? (get_op expr) 'var) (if (pair? (cddr expr))
-                                    (return (m_assign (cadr expr) (m_eval (caddr expr) m_state) m_state))
-                                    (return (m_declare (cadr expr) m_state)))]
+                                    (m_assign (cadr expr) (m_eval (caddr expr) m_state) m_state)
+                                    (m_declare (cadr expr) m_state))]
       [(eq? (get_op expr) '=) (m_initialize (cadr expr) (m_eval (caddr expr) m_state) m_state)]
       [(eq? (get_op expr) 'return) (m_return (cadr expr) m_state return)]
       [(eq? (get_op expr) 'if) (if (pair? (cdddr expr))
@@ -71,7 +72,7 @@
   (lambda (condition expr m_state return break continue)
     (if (eq? (m_bool condition m_state return) #t)
         (m_while condition expr (run_line expr m_state return break continue) return break continue) ; assume no side effects
-        (return m_state))))
+        m_state)))
 
 ;; Checks the input condition
 ;; Returns the state of the expression within the body
@@ -80,7 +81,7 @@
   (lambda (condition expr1 m_state return break continue)
     (if (eq? (m_bool condition m_state return) #t)
         (run_line expr1 m_state return break continue) ; assume no side effects
-        (return m_state))))
+        m_state)))
 
 
 ;; Checks the input condition
@@ -90,7 +91,7 @@
   (lambda (condition expr1 expr2 m_state return break continue)
     (if (eq? (m_bool condition m_state return) #t)
         (run_line expr1 m_state return break continue) ; assume no side effects
-        (return (run_line expr2 m_state return break continue)))))
+        (run_line expr2 m_state return break continue))))
 
 ;; Sets the return variable in m_state to the result of expr
 (define m_return
