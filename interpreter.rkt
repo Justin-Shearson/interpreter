@@ -49,9 +49,9 @@
       [(eq? (get_op expr) 'if) (if (pair? (cdddr expr))
                                     (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return break continue)
                                     (m_if (cadr expr) (caddr expr) m_state return break continue))]
-      [(eq? (get_op expr) 'while)   (call/cc
+      [(eq? (get_op expr) 'while)   (removeBreakLayer (call/cc
                                          (lambda (k)
-                                           (m_while (cadr expr) (caddr expr) m_state return k continue)))]
+                                           (m_while (cadr expr) (caddr expr) (loop_state m_state) return k continue))))]
       [(eq? (get_op expr) 'begin)   (removeLayer
                                      (call/cc
                                       (lambda (k)
