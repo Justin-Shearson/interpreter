@@ -73,23 +73,26 @@
 
 ;; Try block
 (define m_try
-  (lambda (tryblock catchblock m_state return break continue throw)
+  (lambda (trybody catchblock m_state return break continue throw)
     (cond
-      [(atom? (car (run_code tryblock m_state return break continue throw)))
-       (m_catch
-        (car (run_code tryblock m_state return break continue throw))
-        catchblock
-        (cadr (run_code tryblock m_state return break continue throw))
-        return break continue throw)] ; we got a state back
+      [(atom? (car (run_code trybody m_state return break continue throw)))
+       (if (null? catchblock)
+           (error 'throwWithoutCatch "Threw a value without a catch")
+           (removeLayer (m_catch
+                         (caadr catchblock) ; the name of thrown value
+                         (car (run_code trybody m_state return break continue throw)) ; the value of thrown value
+                         (caddr catchblock)
+                         (addLayer (cadr (run_code trybody m_state return break continue throw))) ; the state remaining
+                         return break continue throw)))] ; we got a state back
       [else
-       (run_code tryblock m_state return break continue throw)]))) ; we got a value that was thrown
+       (run_code trybody m_state return break continue throw)]))) ; we got a value that was thrown
 
 ;; Catch block
 (define m_catch
-  (lambda (e catchblock m_state return break continue throw)
+  (lambda (e_name e_val catchbody m_state return break continue throw)
     (cond
-      [(null? catchblock) m_state]
-      [else (run_code (cadr catchblock) m_state return break continue throw)])))
+      [(null? catchbody) m_state]
+      [else (run_code catchbody (m_assign e_name e_val m_state) return break continue throw)]))) ; add name with value of throw to the m_state
 
 ;; Finally block
 (define m_finally
