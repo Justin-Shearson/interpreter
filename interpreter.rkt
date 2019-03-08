@@ -47,12 +47,8 @@
       [(eq? (get_op expr) '=) (m_initialize (cadr expr) (m_eval (caddr expr) m_state) m_state)]
       [(eq? (get_op expr) 'return) (m_return (cadr expr) m_state return)]
       [(eq? (get_op expr) 'if) (if (pair? (cdddr expr))
-                                    (call/cc
-                                     (lambda (k)
-                                       (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return k continue)))
-                                    (call/cc
-                                     (lambda (k)
-                                       (m_if (cadr expr) (caddr expr) m_state return k continue))))]
+                                    (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return break continue)
+                                    (m_if (cadr expr) (caddr expr) m_state return break continue))]
       [(eq? (get_op expr) 'while)   (call/cc
                                          (lambda (k)
                                            (m_while (cadr expr) (caddr expr) m_state return k continue)))]
