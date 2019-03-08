@@ -16,7 +16,7 @@
        (run_code (parser file_name)
               '((return)(null))
               k
-              (lambda (v) (error 'inapropriate_break "Tried to break when not inside a block"))
+              (lambda (v) (error 'inappropriate_break "Tried to break when not inside a block"))
               (lambda (v) v))))))
 
 
