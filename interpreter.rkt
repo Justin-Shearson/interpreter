@@ -169,7 +169,7 @@
 (define removeBreakLayer
   (lambda (m_state)
     (cond
-      [(s_member_layer 'loop--state (cadr m_state)) (removeLayer m_state)]
+      [(s_member_layer 'loop--state (cadr m_state)) (s_remove_loop  (removeLayer m_state))]
       [else (removeBreakLayer (cadr m_state))])))
 ;;Helper function that returns true if there exists a sublayer false if there isn't a layer 
 (define s_layer
@@ -245,6 +245,11 @@
     (if (s_layer m_state)
         (cons (s_declare var (car m_state)) (cdr m_state))
         (cons (cons var (car m_state)) (list (cons 'null (cadr m_state)))))))
+;;
+(define s_remove_loop
+  (lambda (m_state)
+    (cons (cdar m_state) (list (cdadr m_state)))))
+
 
 ;;;; **********************************************************
 ;;;;
