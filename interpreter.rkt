@@ -43,25 +43,60 @@
     (cond
       [(null? expr) m_state]
       [(eq? (get_op expr) 'var) (if (pair? (cddr expr))
-                                    (m_assign (cadr expr) (m_eval (caddr expr) m_state) m_state)
-                                    (m_declare (cadr expr) m_state))]
-      [(eq? (get_op expr) '=) (m_initialize (cadr expr) (m_eval (caddr expr) m_state) m_state)]
-      [(eq? (get_op expr) 'return) (m_return (cadr expr) m_state return)]
+                                    (m_assign (arg1 expr) (m_eval (arg2 expr) m_state) m_state)
+                                    (m_declare (arg1 expr) m_state))]
+      [(eq? (get_op expr) '=) (m_initialize (arg1 expr) (m_eval (arg2 expr) m_state) m_state)]
+      [(eq? (get_op expr) 'return) (m_return (arg1 expr) m_state return)] ; check if return is in try (must run finally)
       [(eq? (get_op expr) 'if) (if (pair? (cdddr expr))
-                                    (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return break continue throw)
-                                    (m_if (cadr expr) (caddr expr) m_state return break continue throw))]
+                                   (m_if_else (cadr expr) (arg2 expr) (arg3 expr) m_state return break continue throw)
+                                   (m_if (arg1 expr) (arg2 expr) m_state return break continue throw))]
       [(eq? (get_op expr) 'while)   (removeBreakLayer (call/cc
-                                         (lambda (k)
-                                           (m_while (cadr expr) (caddr expr) (loop_state m_state) return k continue throw))))]
+                                                       (lambda (k)
+                                                         (m_while (arg1 expr) (arg2 expr) (loop_state m_state) return k continue throw))))]
       [(eq? (get_op expr) 'begin)   (removeLayer
                                      (call/cc
                                       (lambda (k)
                                         (run_code (cdr expr) (addLayer m_state) return break k throw))))]
-      [(eq? (get_op expr) 'try)   (break m_state)] ;CHANGE
-      [(eq? (get_op expr) 'catch)   (break m_state)] ;CHANGE
-      [(eq? (get_op expr) 'break)   (break m_state)]
-      [(eq? (get_op expr) 'continue)   (continue m_state)])))
+      [(eq? (get_op expr) 'try)   (removeLayer (m_finally
+                                                (arg3 expr)
+                                                (addLayer (removeLayer (call/cc
+                                                                        (lambda (k)
+                                                                          (m_try
+                                                                           (arg1 expr)
+                                                                           (arg2 expr)
+                                                                           (addLayer m_state)
+                                                                           return break continue k)))))
+                                                return break continue throw))] ;CHANGE
+      [(eq? (get_op expr) 'break)   (break m_state)] ; check if break is in try (must run finally)
+      [(eq? (get_op expr) 'continue)   (continue m_state)]
+      [(eq? (get_op expr) 'throw)   (throw (cons (m_eval (arg1 expr) m_state) (list m_state)))]))) ; check if throw is legal
 
+;; Try block
+(define m_try
+  (lambda (tryblock catchblock m_state return break continue throw)
+    (cond
+      [(atom? (car (run_code tryblock m_state return break continue throw)))
+       (m_catch
+        (car (run_code tryblock m_state return break continue throw))
+        catchblock
+        (cadr (run_code tryblock m_state return break continue throw))
+        return break continue throw)] ; we got a state back
+      [else
+       (run_code tryblock m_state return break continue throw)]))) ; we got a value that was thrown
+
+;; Catch block
+(define m_catch
+  (lambda (e catchblock m_state return break continue throw)
+    (cond
+      [(null? catchblock) m_state]
+      [else (run_code (cadr catchblock) m_state return break continue throw)])))
+
+;; Finally block
+(define m_finally
+  (lambda (finallyblock m_state return break continue throw)
+    (cond
+      [(null? finallyblock) m_state]
+      [else (run_code (cadr finallyblock) m_state return break continue throw)])))
 
 ;; Checks input condition
 ;; If the condition is true, recurse the while loop on the state returned after
@@ -346,5 +381,9 @@
 
 ;; Abstractions for m_eval and m_bool
 (define get_op car)
+(define arg1 cadr)
+(define arg2 caddr)
+(define arg3 cadddr)
 (define left_operand cadr)
 (define right_operand caddr)
+(define (atom? x) (not (or (pair? x) (null? x))))
