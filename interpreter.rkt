@@ -248,7 +248,9 @@
 ;;
 (define s_remove_loop
   (lambda (m_state)
-    (cons (cdar m_state) (list (cdadr m_state)))))
+    (if (s_layer m_state)
+        (cons (s_remove_loop (car m_state)) (cdr m_state))
+        (cons (cdar m_state) (list (cdadr m_state))))))
 
 
 ;;;; **********************************************************
