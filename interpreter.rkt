@@ -49,9 +49,9 @@
       [(eq? (get_op expr) 'if) (if (pair? (cdddr expr))
                                     (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return break continue)
                                     (m_if (cadr expr) (caddr expr) m_state return break continue))]
-      [(eq? (get_op expr) 'while)   (call/cc
+      [(eq? (get_op expr) 'while)   (removeBreakLayer (call/cc
                                          (lambda (k)
-                                           (m_while (cadr expr) (caddr expr) m_state return k continue)))]
+                                           (m_while (cadr expr) (caddr expr) (loop_state m_state) return k continue))))]
       [(eq? (get_op expr) 'begin)   (removeLayer
                                      (call/cc
                                       (lambda (k)
@@ -162,6 +162,15 @@
         '(()())
         (cadr m_state))))
 
+(define loop_state
+  (lambda (m_state)
+    (s_declare 'loop--state m_state)))
+
+(define removeBreakLayer
+  (lambda (m_state)
+    (cond
+      [(s_member_layer 'loop--state (cadr m_state)) (removeLayer m_state)]
+      [else (removeBreakLayer (cadr m_state))])))
 ;;Helper function that returns true if there exists a sublayer false if there isn't a layer 
 (define s_layer
   (lambda (m_state)
