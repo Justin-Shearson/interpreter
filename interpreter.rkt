@@ -11,23 +11,25 @@
 ;; The highest-level function, interpret
 (define interpret
   (lambda (file_name)
-    (run_code (parser file_name)
+    (call/cc
+     (lambda (k)
+       (run_code (parser file_name)
               '((return)(null))
-              (lambda (v)
-                (cond
-                  [(eq? v #t) 'true]
-                  [(eq? v #f) 'false]
-                  [else v]))
-              (lambda (v) v))))
+              k
+              (lambda (v) v)
+              (lambda (v) v))))))
 
 
 ;; run_code will execute all the code within the parse tree
 (define run_code
-  (lambda (parse_tree state return break)
+  (lambda (parse_tree state return break continue)
     (cond
-      [(not (eq? (m_value 'return state) 'null)) (return (m_value 'return state))] ; check if there is something to return
+      [(not (eq? (m_value 'return state) 'null)) (return (cond
+                                                           [(eq? (m_value 'return state) #t) 'true]
+                                                           [(eq? (m_value 'return state) #f) 'false]
+                                                           [else (m_value 'return state)]))] ; check if there is something to return
       [(null? parse_tree) state] ;; Code may have been run with no return, will just return state
-      [else (run_code (cdr parse_tree) (run_line (car parse_tree) state return break) return break)])))
+      [else (run_code (cdr parse_tree) (run_line (car parse_tree) state return break continue) return break continue)])))
 
 
 ;; run_line will run a single line of code within the parse tree
@@ -36,23 +38,26 @@
 ;; Example: (run_line '(var x) '((return) (null)) (lambda (v) v)) => '((x return) (null null))
 ;; Example: (run_line '(= x 4) '((x return) (null null)) (lambda (v) v)) => '((x return) (4 null))
 (define run_line
-  (lambda (expr m_state return break)
+  (lambda (expr m_state return break continue)
     (cond
       [(null? expr) m_state]
       [(eq? (get_op expr) 'var) (if (pair? (cddr expr))
-                                    (return (m_assign (cadr expr) (m_eval (caddr expr) m_state) m_state))
-                                    (return (m_declare (cadr expr) m_state)))]
+                                    (m_assign (cadr expr) (m_eval (caddr expr) m_state) m_state)
+                                    (m_declare (cadr expr) m_state))]
       [(eq? (get_op expr) '=) (m_initialize (cadr expr) (m_eval (caddr expr) m_state) m_state)]
       [(eq? (get_op expr) 'return) (m_return (cadr expr) m_state return)]
       [(eq? (get_op expr) 'if) (if (pair? (cdddr expr))
-                                    (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return break)
-                                    (m_if (cadr expr) (caddr expr) m_state return break))]
-      [(eq? (get_op expr) 'while)   (m_while (cadr expr) (caddr expr) m_state return break)]
+                                    (m_if_else (cadr expr) (caddr expr) (cadddr expr) m_state return break continue)
+                                    (m_if (cadr expr) (caddr expr) m_state return break continue))]
+      [(eq? (get_op expr) 'while)   (call/cc
+                                         (lambda (k)
+                                           (m_while (cadr expr) (caddr expr) m_state return k continue)))]
       [(eq? (get_op expr) 'begin)   (removeLayer
                                      (call/cc
-                                      (lambda (v)
-                                        (run_code (cdr expr) (addLayer m_state) return v))))]
-      [(eq? (get_op expr) 'break)   (break m_state)])))
+                                      (lambda (k)
+                                        (run_code (cdr expr) (addLayer m_state) return break k))))]
+      [(eq? (get_op expr) 'break)   (break m_state)]
+      [(eq? (get_op expr) 'continue)   (continue m_state)])))
 
 
 ;; Checks input condition
@@ -60,29 +65,29 @@
 ;;  executing the expression
 ;; Otherwise return the current m_state
 (define m_while
-  (lambda (condition expr m_state return break)
+  (lambda (condition expr m_state return break continue)
     (if (eq? (m_bool condition m_state return) #t)
-        (m_while condition expr (run_line expr m_state return break) return break) ; assume no side effects
-        (return m_state))))
+        (m_while condition expr (run_line expr m_state return break continue) return break continue) ; assume no side effects
+        m_state)))
 
 ;; Checks the input condition
 ;; Returns the state of the expression within the body
 ;; Otherwise return the current m_state
 (define m_if
-  (lambda (condition expr1 m_state return break)
+  (lambda (condition expr1 m_state return break continue)
     (if (eq? (m_bool condition m_state return) #t)
-        (run_line expr1 m_state return break) ; assume no side effects
-        (return m_state))))
+        (run_line expr1 m_state return break continue) ; assume no side effects
+        m_state)))
 
 
 ;; Checks the input condition
 ;; If the condition is true, return the state given by the expression
 ;; Otherwise returns the m_state of the expression within the else condition
 (define m_if_else
-  (lambda (condition expr1 expr2 m_state return break)
+  (lambda (condition expr1 expr2 m_state return break continue)
     (if (eq? (m_bool condition m_state return) #t)
-        (run_line expr1 m_state return break) ; assume no side effects
-        (return (run_line expr2 m_state return break)))))
+        (run_line expr1 m_state return break continue) ; assume no side effects
+        (run_line expr2 m_state return break continue))))
 
 ;; Sets the return variable in m_state to the result of expr
 (define m_return
@@ -157,6 +162,11 @@
         '(()())
         (cadr m_state))))
 
+(define removeBreakLayer
+  (lambda (m_state)
+    (cond
+      [(s_member_layer 'loop_layer m_state) (removeLayer m_state)]
+      [else (removeBreakLayer (cadr m_state))])))
 ;;Helper function that returns true if there exists a sublayer false if there isn't a layer 
 (define s_layer
   (lambda (m_state)
@@ -213,7 +223,7 @@
     (if (s_layer m_state)
         (if (s_member_layer var (car m_state))
             (cons (s_initvalue var val (car m_state)) (cdr m_state))
-            (cons (car m_state) (s_initvalue var val (cdr m_state))))
+            (cons (car m_state) (list (s_initvalue var val (cadr m_state)))))
         (if (eq? var (caar m_state))
             (cons (car m_state) (list (cons val (cdadr m_state))))
             (s_initvalue (caar m_state) (caadr m_state) (s_declare (caar m_state) (s_initvalue var val (cons (cdar m_state) (list (cdadr m_state))))))))))
