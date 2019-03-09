@@ -63,7 +63,7 @@
                                                              (m_try
                                                               (arg1 expr)
                                                               (arg2 expr)
-                                                              (try_state m_state)
+                                                              (addLayer (try_state m_state))
                                                               return break continue throw)))
                                                 return break continue throw))] ;CHANGE
       [(eq? (get_op expr) 'break)   (break m_state)] ; check if break is in try (must run finally)
@@ -196,26 +196,31 @@
       '(()())
       (cons '(()()) (list m_state)))))
 
+;; A helper function that removes a layer from the state
 (define removeLayer
   (lambda (m_state)
     (if (null? m_state)
         '(()())
         (cadr m_state))))
 
+;; A helper function that adds the 'loop--state variable to a state to set up the state to enter a loop
 (define loop_state
   (lambda (m_state)
     (s_declare 'loop--state m_state)))
 
+;; Removes all layers down to where 'loop--state was started to exit a loop
 (define removeBreakLayer
   (lambda (m_state)
     (cond
       [(s_member_layer 'loop--state m_state) (s_remove_front m_state)]
       [else (removeBreakLayer (cadr m_state))])))
 
+;; A helper function that adds the 'try--state variable to a state to set up the state to enter a try/catch
 (define try_state
   (lambda (m_state)
     (s_declare 'try--state m_state)))
 
+;; Removes all layers down to where 'try--state was started to exit a try/catch
 (define removeThrowLayer
   (lambda (m_state)
     (cond
@@ -236,7 +241,7 @@
       [else
        #f])))
 
-;; A helper function that just returns whether a variable is in the list
+;; A helper function that just returns whether a variable is in the top-most layer
 (define s_member_layer
   (lambda (a m_state)
     (cond
@@ -245,6 +250,8 @@
       [(null? (car m_state))  #f]
       [(eq? a (caar m_state)) #t]
       (else                   (s_member a (cons (cdar m_state) (cdr m_state)))))))
+
+;; A helper function that just returns whether a variable is in a normal state list
 (define s_member
   (lambda (a m_state)
     (cond
@@ -297,7 +304,7 @@
     (if (s_layer m_state)
         (cons (s_declare var (car m_state)) (cdr m_state))
         (cons (cons var (car m_state)) (list (cons 'null (cadr m_state)))))))
-;;
+;; Removes the first variable of a state
 (define s_remove_front
   (lambda (m_state)
     (if (s_layer m_state)
