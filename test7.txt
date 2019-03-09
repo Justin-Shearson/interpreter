@@ -1,0 +1,10 @@
+try {
+  var x = 5;
+}
+catch(e) {
+  var z = 0;
+}
+finally {
+  var y = 1;
+}
+return 5;
