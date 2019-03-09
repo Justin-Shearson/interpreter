@@ -70,7 +70,10 @@
       [(eq? (get_op expr) 'continue)   (continue m_state)]
       [(eq? (get_op expr) 'throw)   (throw (cons (m_eval (arg1 expr) m_state) (list m_state)))]))) ; check if throw is legal
 
-;; Try block
+;; Try block:
+;;  If running the try body throws a value and a state
+;;   execute the catch block on that state and give the name and value of the thrown value
+;;  Otherwise return the state after running the try body
 (define m_try
   (lambda (trybody catchblock m_state return break continue throw)
     (cond
@@ -82,18 +85,22 @@
                          (car (call/cc (lambda (k) (run_code trybody m_state return break continue k)))) ; the value of thrown value
                          (caddr catchblock)
                          (addLayer (cadr (call/cc (lambda (k) (run_code trybody m_state return break continue k))))) ; the state remaining
-                         return break continue throw)))] ; we got a state back
+                         return break continue throw)))]
       [else
        (removeLayer (run_code trybody (addLayer m_state) return break continue throw))]))) ; we got a state
 
-;; Catch block
+;; Catch block:
+;;  If there is no catch-body, returns the m_state
+;;  Otherwise returns the state after executing the catch-body
 (define m_catch
   (lambda (e_name e_val catchbody m_state return break continue throw)
     (cond
       [(null? catchbody) m_state]
       [else (run_code catchbody (m_assign e_name e_val m_state) return break continue throw)]))) ; add name with value of throw to the m_state
 
-;; Finally block
+;; Finally block:
+;;  If there is not finally-block, returns the m_state
+;;  Otherwise  returns the state after executing the finally-body
 (define m_finally
   (lambda (finallyblock m_state return break continue throw)
     (cond
@@ -304,6 +311,7 @@
     (if (s_layer m_state)
         (cons (s_declare var (car m_state)) (cdr m_state))
         (cons (cons var (car m_state)) (list (cons 'null (cadr m_state)))))))
+
 ;; Removes the first variable of a state
 (define s_remove_front
   (lambda (m_state)
