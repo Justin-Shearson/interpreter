@@ -9,6 +9,7 @@
 ;;;; ***************************************************
 
 ;; The highest-level function, interpret
+;; (interpret file_name) => return_output_of_file
 (define interpret
   (lambda (file_name)
     (call/cc
@@ -22,53 +23,76 @@
 
 
 ;; run_code will execute all the code within the parse tree
+;; Example: (run_code '((return 5)) '((return) (null))) => 5)
 (define run_code
   (lambda (parse_tree state return break continue throw)
     (cond
-      [(not (eq? (m_value 'return state) 'null)) (return (cond
-                                                           [(eq? (m_value 'return state) #t) 'true]
-                                                           [(eq? (m_value 'return state) #f) 'false]
-                                                           [else (m_value 'return state)]))] ; check if there is something to return
-      [(null? parse_tree) state] ;; Code may have been run with no return, will just return state
-      [else (run_code (cdr parse_tree) (run_line (car parse_tree) state return break continue throw) return break continue throw)])))
+      [(not (eq? (m_value 'return state) 'null))
+       (return (cond
+                 [(eq? (m_value 'return state) #t) 'true]
+                 [(eq? (m_value 'return state) #f) 'false]
+                 [else (m_value 'return state)]))] 
+      [(null? parse_tree)
+       state] 
+      [else
+       (run_code
+        (cdr parse_tree)
+        (run_line (car parse_tree) state return break continue throw)
+        return break continue throw)])))
 
 
 ;; run_line will run a single line of code within the parse tree
 ;;  returns a state
-;; Example: (run_line '((if (< x 10) (return 1) (return 2))) '((x)(1)) (lambda (v) v))
-;; Example: (run_line '(var x) '((return) (null)) (lambda (v) v)) => '((x return) (null null))
-;; Example: (run_line '(= x 4) '((x return) (null null)) (lambda (v) v)) => '((x return) (4 null))
+;; Example: (run_line '(if (< x 10) (return 1) (return 2)) ...) => '((x)(1)) (lambda (v) v))
+;; Example: (run_line '(var x) '((return) (null)) (lambda (v) v) ...) => '((x return) (null null))
+;; Example: (run_line '(= x 4) '((x return) (null null)) (lambda (v) v) ...) => '((x return) (4 null))
 (define run_line
   (lambda (expr m_state return break continue throw)
     (cond
       [(null? expr) m_state]
-      [(eq? (get_op expr) 'var) (if (pair? (cddr expr))
-                                    (m_assign (arg1 expr) (m_eval (arg2 expr) m_state) m_state)
-                                    (m_declare (arg1 expr) m_state))]
-      [(eq? (get_op expr) '=) (m_initialize (arg1 expr) (m_eval (arg2 expr) m_state) m_state)]
-      [(eq? (get_op expr) 'return) (m_return (arg1 expr) m_state return)] ; check if return is in try (must run finally)
-      [(eq? (get_op expr) 'if) (if (pair? (cdddr expr))
-                                   (m_if_else (cadr expr) (arg2 expr) (arg3 expr) m_state return break continue throw)
-                                   (m_if (arg1 expr) (arg2 expr) m_state return break continue throw))]
-      [(eq? (get_op expr) 'while)   (removeBreakLayer (call/cc
-                                                       (lambda (k)
-                                                         (m_while (arg1 expr) (arg2 expr) (loop_state m_state) return k continue throw))))]
-      [(eq? (get_op expr) 'begin)   (removeLayer
-                                     (call/cc
-                                      (lambda (k)
-                                        (run_code (cdr expr) (addLayer m_state) return break k throw))))]
-      [(eq? (get_op expr) 'try)   (removeLayer (m_finally
-                                                (arg3 expr)
-                                                (addLayer (removeThrowLayer
-                                                             (m_try
-                                                              (arg1 expr)
-                                                              (arg2 expr)
-                                                              (addLayer (try_state m_state))
-                                                              return break continue throw)))
-                                                return break continue throw))] ;CHANGE
-      [(eq? (get_op expr) 'break)   (break m_state)] ; check if break is in try (must run finally)
-      [(eq? (get_op expr) 'continue)   (continue m_state)]
-      [(eq? (get_op expr) 'throw)   (throw (cons (m_eval (arg1 expr) m_state) (list m_state)))]))) ; check if throw is legal
+      [(eq? (get_op expr) 'var)      (if (pair? (cddr expr))
+                                         (m_assign (arg1 expr) (m_eval (arg2 expr) m_state) m_state)
+                                         (m_declare (arg1 expr) m_state))]
+      [(eq? (get_op expr) '=)        (m_initialize
+                                      (arg1 expr)
+                                      (m_eval (arg2 expr) m_state)
+                                      m_state)]
+      [(eq? (get_op expr) 'return)   (m_return
+                                      (arg1 expr)
+                                      m_state return)]
+      [(eq? (get_op expr) 'if)       (if (pair? (cdddr expr))
+                                         (m_if_else
+                                          (cadr expr)
+                                          (arg2 expr)
+                                          (arg3 expr)
+                                          m_state return break continue throw)
+                                         (m_if
+                                          (arg1 expr)
+                                          (arg2 expr)
+                                          m_state return break continue throw))]
+      [(eq? (get_op expr) 'while)    (removeBreakLayer (call/cc
+                                                        (lambda (k)
+                                                          (m_while
+                                                           (arg1 expr)
+                                                           (arg2 expr)
+                                                           (loop_state m_state)
+                                                           return k continue throw))))]
+      [(eq? (get_op expr) 'begin)    (removeLayer
+                                      (call/cc
+                                       (lambda (k)
+                                         (run_code (cdr expr) (addLayer m_state) return break k throw))))]
+      [(eq? (get_op expr) 'try)      (removeLayer (m_finally
+                                                   (arg3 expr)
+                                                   (addLayer (removeThrowLayer
+                                                              (m_try
+                                                               (arg1 expr)
+                                                               (arg2 expr)
+                                                               (addLayer (try_state m_state))
+                                                               return break continue throw)))
+                                                   return break continue throw))]
+      [(eq? (get_op expr) 'break)    (break m_state)]
+      [(eq? (get_op expr) 'continue) (continue m_state)]
+      [(eq? (get_op expr) 'throw)    (throw (cons (m_eval (arg1 expr) m_state) (list m_state)))])))
 
 ;; Try block:
 ;;  If running the try body throws a value and a state
@@ -77,17 +101,26 @@
 (define m_try
   (lambda (trybody catchblock m_state return break continue throw)
     (cond
-      [(atom? (car (call/cc (lambda (k) (run_code trybody m_state return break continue k))))) ; we got a value that was thrown
+      [(atom? (car (call/cc (lambda (k) (run_code trybody m_state return break continue k))))) ; thrown value
        (if (null? catchblock)
            (error 'throwWithoutCatch "Threw a value without a catch")
            (removeLayer (m_catch
                          (caadr catchblock) ; the name of thrown value
-                         (car (call/cc (lambda (k) (run_code trybody m_state return break continue k)))) ; the value of thrown value
+                         (car (call/cc
+                               (lambda (k)
+                                 (run_code trybody m_state return break continue k)))) ; the thrown value
                          (caddr catchblock)
-                         (addLayer (cadr (call/cc (lambda (k) (run_code trybody m_state return break continue k))))) ; the state remaining
+                         (addLayer
+                          (cadr
+                           (call/cc
+                            (lambda (k)
+                              (run_code trybody m_state return break continue k))))) ; the state remaining
                          return break continue throw)))]
       [else
-       (removeLayer (run_code trybody (addLayer m_state) return break continue throw))]))) ; we got a state
+       (removeLayer (run_code
+                     trybody
+                     (addLayer m_state)
+                     return break continue throw))]))) ; we got a state
 
 ;; Catch block:
 ;;  If there is no catch-body, returns the m_state
@@ -95,8 +128,12 @@
 (define m_catch
   (lambda (e_name e_val catchbody m_state return break continue throw)
     (cond
-      [(null? catchbody) m_state]
-      [else (run_code catchbody (m_assign e_name e_val m_state) return break continue throw)]))) ; add name with value of throw to the m_state
+      [(null? catchbody)
+       m_state]
+      [else
+       (run_code catchbody
+                 (m_assign e_name e_val m_state)
+                 return break continue throw)]))) ; add name with value of throw to the m_state
 
 ;; Finally block:
 ;;  If there is not finally-block, returns the m_state
@@ -104,39 +141,50 @@
 (define m_finally
   (lambda (finallyblock m_state return break continue throw)
     (cond
-      [(null? finallyblock) m_state]
-      [else (run_code (cadr finallyblock) m_state return break continue throw)])))
+      [(null? finallyblock)
+       m_state]
+      [else
+       (run_code
+        (cadr finallyblock)
+        m_state return break continue throw)])))
 
-;; Checks input condition
-;; If the condition is true, recurse the while loop on the state returned after
-;;  executing the expression
-;; Otherwise return the current m_state
+;; While loop:
+;;  Checks input condition
+;;  If the condition is true, recurse the while loop on the state returned after
+;;   executing the expression
+;;  Otherwise return the current m_state
 (define m_while
   (lambda (condition expr m_state return break continue throw)
     (if (eq? (m_bool condition m_state return) #t)
-        (m_while condition expr (run_line expr m_state return break continue throw) return break continue throw) ; assume no side effects
+        (m_while
+         condition
+         expr
+         (run_line expr m_state return break continue throw)
+         return break continue throw) ; assume no side effects
         m_state)))
 
-;; Checks the input condition
-;; Returns the state of the expression within the body
-;; Otherwise return the current m_state
+;; If statement:
+;;  Checks the input condition
+;;  Returns the state of the expression within the body
+;;  Otherwise return the current m_state
 (define m_if
   (lambda (condition expr1 m_state return break continue throw)
     (if (eq? (m_bool condition m_state return) #t)
         (run_line expr1 m_state return break continue throw) ; assume no side effects
         m_state)))
 
-
-;; Checks the input condition
-;; If the condition is true, return the state given by the expression
-;; Otherwise returns the m_state of the expression within the else condition
+;; If-Else Statement:
+;;  Checks the input condition
+;;  If the condition is true, return the state given by the expression
+;;  Otherwise returns the m_state of the expression within the else condition
 (define m_if_else
   (lambda (condition expr1 expr2 m_state return break continue throw)
     (if (eq? (m_bool condition m_state return) #t)
         (run_line expr1 m_state return break continue throw) ; assume no side effects
         (run_line expr2 m_state return break continue throw))))
 
-;; Sets the return variable in m_state to the result of expr
+;; Return statement:
+;;  Sets the return variable in m_state to the result of expr
 (define m_return
   (lambda (expr m_state return)
     (m_initialize 'return (m_eval expr m_state) m_state)))
@@ -172,7 +220,7 @@
             (error 'declared_variable "Tried to declare an already declared variable")]
       (else (s_declare var m_state)))))
 
-;; Takes a variable, value and m_state and returns the m_state with the initialiazed variable
+;; m_initialize takes a variable, value and m_state and returns the m_state with initialiazed variable
 ;; Example: (m_initialize 'x 14 '((x y z a) (null 2 3 4))) => ((x y z a) (14 2 3 4))
 (define m_initialize
   (lambda (var val m_state)
@@ -181,9 +229,10 @@
             (error 'null_state "m_state is null")]
       [(s_member var m_state)
             (s_initvalue var val m_state)]
-      (else (error 'assignment_error "The variable hasn't been declared (initialization before declaration)")))))
+      (else
+       (error 'assignment_error "The variable hasn't been declared (initialization before declaration)")))))
 
-;; It takes a parameter of a variable and the m_state and
+;; m_value takes a parameter of a variable and the m_state and
 ;;  returns a state
 ;; Example: (m_value 'x '((a b c x) (1 2 3 4))) returns 4
 (define m_value
@@ -197,6 +246,7 @@
 ;;;; **********************************************************
 
 ;; A helper function that adds a new layer to the state
+;; Example: (addLayer '((x return) (0 null))) => '((() ()) ((x return) (0 null)))
 (define addLayer
   (lambda (m_state)
     (if (null? m_state)
@@ -204,6 +254,7 @@
       (cons '(()()) (list m_state)))))
 
 ;; A helper function that removes a layer from the state
+;; Example: (removeLayer '((() ()) ((x return) (0 null)))) => '((x return) (0 null))
 (define removeLayer
   (lambda (m_state)
     (if (null? m_state)
@@ -211,11 +262,16 @@
         (cadr m_state))))
 
 ;; A helper function that adds the 'loop--state variable to a state to set up the state to enter a loop
+;; Example: (loop_state '((x return) (0 null))) => '((loop--state x return) (null 0 null))
 (define loop_state
   (lambda (m_state)
     (s_declare 'loop--state m_state)))
 
 ;; Removes all layers down to where 'loop--state was started to exit a loop
+;; Example:
+;;  (removeBreakLayer '((()()) ((loop--state x return) (null 0 null)))) => '((x return) (0 null))
+;; Example:
+;;  (removeBreakLayer '((() ()) ((() ()) ((loop--state x return) (null 0 null))))) => '((x return) (0 null))
 (define removeBreakLayer
   (lambda (m_state)
     (cond
@@ -223,19 +279,25 @@
       [else (removeBreakLayer (cadr m_state))])))
 
 ;; A helper function that adds the 'try--state variable to a state to set up the state to enter a try/catch
+;; Example: (try_state '((x return) (0 null))) => '((try--state x return) (null 0 null))
 (define try_state
   (lambda (m_state)
     (s_declare 'try--state m_state)))
 
 ;; Removes all layers down to where 'try--state was started to exit a try/catch
+;; Example:
+;;  (removeThrowLayer '((()()) ((try--state x return) (null 0 null)))) => '((x return) (0 null))
+;; Example:
+;;  (removeThrowLayer '((() ()) ((() ()) ((try--state x return) (null 0 null))))) => '((x return) (0 null))
 (define removeThrowLayer
   (lambda (m_state)
     (cond
       [(s_member_layer 'try--state m_state) (s_remove_front m_state)]
       [else (removeThrowLayer (cadr m_state))])))
 
-
-;;Helper function that returns true if there exists a sublayer false if there isn't a layer 
+;; Helper function that returns true if there exists a sublayer false if there isn't a layer
+;; Example: (s_layer '(()())) => #f
+;; Example: (s_layer '((()()) ((()())))) => #t
 (define s_layer
   (lambda (m_state)
     (cond
@@ -249,6 +311,8 @@
        #f])))
 
 ;; A helper function that just returns whether a variable is in the top-most layer
+;; Example: (s_member_layer 'a '(((a)(1)) ((()())))) => #t
+;; Example: (s_member_layer 'a '((()()) ((a)(1)))) => #f
 (define s_member_layer
   (lambda (a m_state)
     (cond
@@ -259,6 +323,8 @@
       (else                   (s_member a (cons (cdar m_state) (cdr m_state)))))))
 
 ;; A helper function that just returns whether a variable is in a normal state list
+;; Example: (s_member 'b '((a b c)(1 2 3))) => t
+; Example: (s_member 'd '((a b c)(1 2 3))) => #f
 (define s_member
   (lambda (a m_state)
     (cond
@@ -268,9 +334,9 @@
       [(eq? a (caar m_state)) #t]
       (else                   (s_member a (cons (cdar m_state) (cdr m_state)))))))
 
-;; It takes a parameter of a variable and the m_state and
+;; s_value takes a parameter of a variable and the m_state and
 ;;  returns a state
-;; Example: (m_value 'x '((a b c x) (1 2 3 4))) returns 4
+;; Example: (s_value 'x '((a b c x) (1 2 3 4))) => 4
 (define s_value
   (lambda (var m_state)
     (cond
@@ -288,6 +354,7 @@
        (s_value var (cons (cdar m_state) (list (cdadr m_state))))))))
 
 ;; Sets the value of the already declared variable in the state
+;; Example: (s_initvalue 'x 5 '((x) (null))) => '((x) (5))
 (define s_initvalue
   (lambda (var val m_state)
     (if (s_layer m_state)
@@ -296,9 +363,15 @@
             (cons (car m_state) (list (s_initvalue var val (cadr m_state)))))
         (if (eq? var (caar m_state))
             (cons (car m_state) (list (cons val (cdadr m_state))))
-            (s_initvalue (caar m_state) (caadr m_state) (s_declare (caar m_state) (s_initvalue var val (cons (cdar m_state) (list (cdadr m_state))))))))))
+            (s_initvalue
+             (caar m_state)
+             (caadr m_state)
+             (s_declare
+              (caar m_state)
+              (s_initvalue var val (cons (cdar m_state) (list (cdadr m_state))))))))))
 
 ;; Declares and initializes variable to the value input
+;; Example: (s_assignvalue 'x 5 '((return) (null))) => '((x return) (5 null))
 (define s_assignvalue
   (lambda (var val m_state)
     (if (s_layer m_state)
@@ -306,6 +379,7 @@
         (cons (cons var (car m_state)) (list (cons val (cadr m_state)))))))
 
 ;; Declares a variable and sets its initial value to 'null
+;; Example: (s_declare 'x '((return) (null))) => '((x return) (null null))
 (define s_declare
   (lambda (var m_state)
     (if (s_layer m_state)
@@ -313,6 +387,7 @@
         (cons (cons var (car m_state)) (list (cons 'null (cadr m_state)))))))
 
 ;; Removes the first variable of a state
+;; Example: (s_remove_front '((x y z) (4 5 6))) => '((y z) (5 6))
 (define s_remove_front
   (lambda (m_state)
     (if (s_layer m_state)
@@ -366,37 +441,53 @@
   (lambda (condition m_state return)
     (cond
       [(null? condition)
-            (error 'invalid "expression is empty")]
+       (error 'invalid "expression is empty")]
       [(and (symbol? condition) (eq? condition 'true))
-            #t]
+       #t]
       [(and (symbol? condition) (eq? condition 'false))
-            #f]
+       #f]
       [(symbol? condition)
-            (m_value condition m_state)]
+       (m_value condition m_state)]
       [(or (number? condition) (boolean? condition))
-            condition]
+       condition]
       [(eq? (get_op condition) '&&)
-            (and (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return))]
+       (and
+        (m_bool (left_operand condition) m_state return)
+        (m_bool (right_operand condition) m_state return))]
       [(eq? (get_op condition) '||)
-            (or (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return))]
+       (or
+        (m_bool (left_operand condition) m_state return)
+        (m_bool (right_operand condition) m_state return))]
       [(eq? (get_op condition) '>=)
-            (>= (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return))]
+       (>=
+        (m_bool (left_operand condition) m_state return)
+        (m_bool (right_operand condition) m_state return))]
       [(eq? (get_op condition) '<=)
-            (<= (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return))]
+       (<=
+        (m_bool (left_operand condition) m_state return)
+        (m_bool (right_operand condition) m_state return))]
       [(eq? (get_op condition) '>)
-            (> (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return))]
+       (>
+        (m_bool (left_operand condition) m_state return)
+        (m_bool (right_operand condition) m_state return))]
       [(eq? (get_op condition) '<)
-            (< (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return))]
+       (<
+        (m_bool (left_operand condition) m_state return)
+        (m_bool (right_operand condition) m_state return))]
       [(eq? (get_op condition) '==)
-            (eq? (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return))]
+       (eq?
+        (m_bool (left_operand condition) m_state return)
+        (m_bool (right_operand condition) m_state return))]
       [(eq? (get_op condition) '!=)
-            (not (eq? (m_bool (left_operand condition) m_state return) (m_bool (right_operand condition) m_state return)))]
+       (not
+        (eq? (m_bool (left_operand condition) m_state return)
+             (m_bool (right_operand condition) m_state return)))]
       [(eq? (get_op condition) '!)
-            (not (m_bool (left_operand condition) m_state return))]
+       (not (m_bool (left_operand condition) m_state return))]
       [(check_operator condition) (m_eval condition m_state)]
       [else (error 'Invalid_eval "The condition contains an illegal comparison or operator")])))
 
-;; Checks if the operator is a mathematical operator
+;; check_operator checks if the operator is a mathematical operator
 (define check_operator
   (lambda (exp)
     (cond
@@ -408,7 +499,7 @@
       (else #f))))
 
 
-;; Abstractions for m_eval and m_bool
+;; Abstractions for m_eval and m_bool and getting arguments of a line
 (define get_op car)
 (define arg1 cadr)
 (define arg2 caddr)
