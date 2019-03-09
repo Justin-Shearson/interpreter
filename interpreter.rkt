@@ -5,7 +5,7 @@
 ;;;; ***************************************************
 ;;;; Austin Guo, Daniel Luo, Justin Shearson
 ;;;; EECS 345 Spring 2019
-;;;; Interpreter Part 1
+;;;; Interpreter Part 2
 ;;;; ***************************************************
 
 ;; The highest-level function, interpret
