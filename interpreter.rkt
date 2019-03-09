@@ -16,9 +16,9 @@
        (run_code (parser file_name)
               '((return)(null))
               k
-              (lambda (v) (error 'inappropriate_break "Tried to break when not inside a block"))
+              (lambda (v) (error 'inappropriate_break "Tried to break when not inside a loop"))
               (lambda (v) v)
-              (lambda (v) v))))))
+              (lambda (v) (error 'inappropriate_throw "Tried to throw when not inside a try")))))))
 
 
 ;; run_code will execute all the code within the parse tree
@@ -59,13 +59,12 @@
                                         (run_code (cdr expr) (addLayer m_state) return break k throw))))]
       [(eq? (get_op expr) 'try)   (removeLayer (m_finally
                                                 (arg3 expr)
-                                                (addLayer (removeLayer (call/cc
-                                                                        (lambda (k)
-                                                                          (m_try
-                                                                           (arg1 expr)
-                                                                           (arg2 expr)
-                                                                           (addLayer m_state)
-                                                                           return break continue k)))))
+                                                (addLayer (removeThrowLayer
+                                                             (m_try
+                                                              (arg1 expr)
+                                                              (arg2 expr)
+                                                              (try_state m_state)
+                                                              return break continue throw)))
                                                 return break continue throw))] ;CHANGE
       [(eq? (get_op expr) 'break)   (break m_state)] ; check if break is in try (must run finally)
       [(eq? (get_op expr) 'continue)   (continue m_state)]
@@ -75,17 +74,17 @@
 (define m_try
   (lambda (trybody catchblock m_state return break continue throw)
     (cond
-      [(atom? (car (run_code trybody m_state return break continue throw)))
+      [(atom? (car (call/cc (lambda (k) (run_code trybody m_state return break continue k))))) ; we got a value that was thrown
        (if (null? catchblock)
            (error 'throwWithoutCatch "Threw a value without a catch")
            (removeLayer (m_catch
                          (caadr catchblock) ; the name of thrown value
-                         (car (run_code trybody m_state return break continue throw)) ; the value of thrown value
+                         (car (call/cc (lambda (k) (run_code trybody m_state return break continue k)))) ; the value of thrown value
                          (caddr catchblock)
-                         (addLayer (cadr (run_code trybody m_state return break continue throw))) ; the state remaining
+                         (addLayer (cadr (call/cc (lambda (k) (run_code trybody m_state return break continue k))))) ; the state remaining
                          return break continue throw)))] ; we got a state back
       [else
-       (run_code trybody m_state return break continue throw)]))) ; we got a value that was thrown
+       (removeLayer (run_code trybody (addLayer m_state) return break continue throw))]))) ; we got a state
 
 ;; Catch block
 (define m_catch
@@ -210,8 +209,20 @@
 (define removeBreakLayer
   (lambda (m_state)
     (cond
-      [(s_member_layer 'loop--state m_state) (s_remove_loop m_state)]
+      [(s_member_layer 'loop--state m_state) (s_remove_front m_state)]
       [else (removeBreakLayer (cadr m_state))])))
+
+(define try_state
+  (lambda (m_state)
+    (s_declare 'try--state m_state)))
+
+(define removeThrowLayer
+  (lambda (m_state)
+    (cond
+      [(s_member_layer 'try--state m_state) (s_remove_front m_state)]
+      [else (removeThrowLayer (cadr m_state))])))
+
+
 ;;Helper function that returns true if there exists a sublayer false if there isn't a layer 
 (define s_layer
   (lambda (m_state)
@@ -287,10 +298,10 @@
         (cons (s_declare var (car m_state)) (cdr m_state))
         (cons (cons var (car m_state)) (list (cons 'null (cadr m_state)))))))
 ;;
-(define s_remove_loop
+(define s_remove_front
   (lambda (m_state)
     (if (s_layer m_state)
-        (cons (s_remove_loop (car m_state)) (cdr m_state))
+        (cons (s_remove_front (car m_state)) (cdr m_state))
         (cons (cdar m_state) (list (cdadr m_state))))))
 
 
