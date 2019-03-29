@@ -275,7 +275,7 @@
 (define removeBreakLayer
   (lambda (m_state)
     (cond
-      [(s_member_layer 'loop--state m_state) (s_remove_front m_state)]
+      [(s_member_layer 'loop--state m_state) (s_super_destroy 'loop--state m_state)]
       [else (removeBreakLayer (cadr m_state))])))
 
 ;; A helper function that adds the 'try--state variable to a state to set up the state to enter a try/catch
@@ -292,7 +292,7 @@
 (define removeThrowLayer
   (lambda (m_state)
     (cond
-      [(s_member_layer 'try--state m_state) (s_remove_front m_state)]
+      [(s_member_layer 'try--state m_state) (s_super_destroy 'try--state m_state)]
       [else (removeThrowLayer (cadr m_state))])))
 
 ;; Helper function that returns true if there exists a sublayer false if there isn't a layer
@@ -378,6 +378,30 @@
         (cons (s_assignvalue var val (car m_state)) (cdr m_state))
         (cons (cons var (car m_state)) (list (cons val (cadr m_state)))))))
 
+;; Finds the index of the given variable in the m_state
+(define s_index
+  (lambda (var m_state)
+    (cond
+      [(null? (car m_state)) (error 'varNotFoundError "Variable does not exist or is not in scope")]
+      [(s_layer m_state) (s_index var (car m_state))]
+      [(eq? var (caar m_state)) 0]
+      [else (+ 1 (s_index var (cons (cdar m_state) (list (cdadr m_state)))))])))        
+
+
+;; Deletes the variable from the m_state
+(define s_super_destroy
+  (lambda (var m_state)
+    (cond
+      [(s_layer m_state) (cons (s_super_destroy var (car m_state)) (cdr m_state))]
+      [else (s_destroy (s_index var m_state) m_state)])))
+
+(define s_destroy
+  (lambda (index m_state)
+    (cond
+      [(zero? index) (cons (cdar m_state) (list (cdadr m_state)))]
+      [else (s_assignvalue (caar m_state) (caadr m_state) (s_destroy (- index 1) (cons (cdar m_state) (list (cdadr m_state)))))])))
+      
+
 ;; Declares a variable and sets its initial value to 'null
 ;; Example: (s_declare 'x '((return) (null))) => '((x return) (null null))
 (define s_declare
@@ -394,6 +418,12 @@
         (cons (s_remove_front (car m_state)) (cdr m_state))
         (cons (cdar m_state) (list (cdadr m_state))))))
 
+;(define s_remove_value
+;  (lambda (m_state var)
+ ;   (cond
+  ;    [(if (s_layer m_state)
+   ;        (if (s_member_layer  var m_state)
+ ;              ))])))
 
 ;;;; **********************************************************
 ;;;;
