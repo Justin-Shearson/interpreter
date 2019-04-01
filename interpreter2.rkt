@@ -242,7 +242,8 @@
 ; create an empty frame: a frame is two lists, the first are the variables and the second is the "store" of values
 (define newframe
   (lambda ()
-    '(() ())))
+    '(() ())
+    ))
 
 ; add a frame onto the top of the environment
 (define push-frame
@@ -335,6 +336,18 @@
 (define add-to-frame
   (lambda (var val frame)
     (list (cons var (variables frame)) (cons (scheme->language val) (store frame)))))
+
+(define add-params
+  (lambda (fname lis env)
+    (insert-params(push-frame env) (car (lookup fname env)) lis)))
+
+(define insert-params
+  (lambda (env param-lis lis)
+    (cond
+      [(and (null? lis) (null? param-lis)) env]
+      [(null? param-lis) (myerror "ParamError: You have to many parameters for the function")]
+      [(null? lis) (myerror "Paramerror: You have too few parameters for the function")]
+      [else (insert-params (insert (car param-lis)(car lis) env) (cdr param-lis) (cdr lis))])))
 
 ; Changes the binding of a variable in the environment to a new value
 (define update-existing
