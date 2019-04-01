@@ -1,5 +1,6 @@
 ; If you are using scheme instead of racket, comment these two lines, uncomment the (load "simpleParser.scm") and comment the (require "simpleParser.rkt")
 #lang racket
+(provide (all-defined-out))
 (require "functionParser.rkt")
 ; (load "simpleParser.scm")
 
@@ -26,7 +27,7 @@
   (lambda (statement-list environment return break continue throw)
     (if (null? statement-list)
         environment
-        (interpret-statement-list (cdr statement-list) (interpret-statement (car statement-list) environment return break continue throw) return break continue throw))))
+        (interpret-statement-list (cdr statement-list) (interpret-statement (car statement-list) (make-valid environment) return break continue throw) return break continue throw))))
 
 ; interpret a statement in the environment with continuations for return, break, continue, throw
 (define interpret-statement
@@ -68,11 +69,9 @@
 ; Calls the return continuation with the given expression value
 (define interpret-return
   (lambda (statement environment return break continue throw)
-    (if (and (pair? (get-expr statement)) (eq? (car (get-expr statement)) 'funcall))
-        (interpret-funcall (operand1 statement) environment return break continue throw)
-        (if (pair? (car statement))
+    (if (list? (car statement))
             (return (eval-expression (get-expr (car statement)) environment return break continue throw))
-            (return (eval-expression (get-expr statement) environment return break continue throw))))))
+            (return (eval-expression (get-expr statement) environment return break continue throw)))))
 
 ; Adds a new variable binding to the environment.  There may be an assignment with the variable
 (define interpret-declare
@@ -413,6 +412,24 @@
 (define store
   (lambda (frame)
     (cadr frame)))
+
+; Will check to see if the first element is an atom
+; If it is, then we have (return_value, env) so we should use only the env
+(define make-valid
+  (lambda (env)
+    (if (list? (car env))
+        env
+        (operand1 env))))
+
+; Will get the return value
+; 2 cases: a) return_value
+;          b) (return_value, env)
+(define get-value-from-val-env-list
+  (lambda value-or-value-with-state
+    (if (list? value-or-value-with-state)
+        (car value-or-value-with-state)
+        value-or-value-with-state)))
+  
 
 ; Functions to convert the Scheme #t and #f to our languages true and false, and back.
 
