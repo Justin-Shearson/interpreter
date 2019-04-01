@@ -57,7 +57,7 @@
 (define interpret-funcall
   (lambda (statement environment return break continue throw)
     (pop-frame (interpret-statement-list (lookup-in-env (get-func-name (get-return-value statement)) environment)
-                                         (add-params (get-func-name statement) (get-func-params statement) environment)
+                                         (add-params (get-func-name (get-return-value statement)) (get-func-inputs (get-return-value statement)) environment)
                                          return
                                          (lambda (env) (break (pop-frame env)))
                                          (lambda (env) (continue (pop-frame env)))
@@ -251,6 +251,7 @@
 (define get-func-name operand1)
 (define get-func-params operand2)
 (define get-func-body operand3)
+(define get-func-inputs cddr)
 
 (define catch-var
   (lambda (catch-statement)
