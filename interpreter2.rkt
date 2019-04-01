@@ -1,6 +1,6 @@
 ; If you are using scheme instead of racket, comment these two lines, uncomment the (load "simpleParser.scm") and comment the (require "simpleParser.rkt")
 #lang racket
-(require "simpleParser.rkt")
+(require "functionParser.rkt")
 ; (load "simpleParser.scm")
 
 
@@ -32,7 +32,7 @@
 (define interpret-statement
   (lambda (statement environment return break continue throw)
     (cond
-      ((eq? 'return (statement-type statement)) (interpret-return statement environment return))
+      ((eq? 'return (statement-type statement)) (interpret-return statement environment return break continue throw))
       ((eq? 'var (statement-type statement)) (interpret-declare statement environment))
       ((eq? '= (statement-type statement)) (interpret-assign statement environment))
       ((eq? 'if (statement-type statement)) (interpret-if statement environment return break continue throw))
@@ -42,12 +42,35 @@
       ((eq? 'begin (statement-type statement)) (interpret-block statement environment return break continue throw))
       ((eq? 'throw (statement-type statement)) (interpret-throw statement environment throw))
       ((eq? 'try (statement-type statement)) (interpret-try statement environment return break continue throw))
+      ((eq? 'function (statement-type statement)) (interpret-function statement environment return break continue throw))
+      ((eq? 'funcall (statement-type statement)) (interpret-funcall statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
+
+; Adds a function to our environment
+(define interpret-function
+  (lambda (statement environment return break continue throw)
+    (if (eq? (get-func-name statement) 'main)
+        (interpret-statement-list (get-func-body statement) environment return break continue throw)
+        (add-func statement environment))))
+
+; Calls a function
+(define interpret-funcall
+  (lambda (statement environment return break continue throw)
+    (pop-frame (interpret-statement-list (lookup-in-env (get-func-name (get-return-value statement)) environment)
+                                         (add-params (get-func-name statement) (get-func-params statement) environment)
+                                         return
+                                         (lambda (env) (break (pop-frame env)))
+                                         (lambda (env) (continue (pop-frame env)))
+                                         (lambda (v env) (throw v (pop-frame env)))))))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
-  (lambda (statement environment return)
-    (return (eval-expression (get-expr statement) environment))))
+  (lambda (statement environment return break continue throw)
+    (if (and (pair? (get-expr statement)) (eq? (car (get-expr statement)) 'funcall))
+        (interpret-funcall statement environment return break continue throw)
+        (if (pair? (car statement))
+            (return (eval-expression (get-expr (car statement)) environment))
+            (return (eval-expression (get-expr statement) environment))))))
 
 ; Adds a new variable binding to the environment.  There may be an assignment with the variable
 (define interpret-declare
@@ -224,6 +247,10 @@
 (define get-try operand1)
 (define get-catch operand2)
 (define get-finally operand3)
+(define get-return-value operand1)
+(define get-func-name operand1)
+(define get-func-params operand2)
+(define get-func-body operand3)
 
 (define catch-var
   (lambda (catch-statement)
@@ -336,6 +363,11 @@
 (define add-to-frame
   (lambda (var val frame)
     (list (cons var (variables frame)) (cons (scheme->language val) (store frame)))))
+
+; Adds function to the environment
+(define add-func
+  (lambda (statement environment)
+    (insert (cadr statement) (cddr statement) environment)))
 
 (define add-params
   (lambda (fname lis env)
