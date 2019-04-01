@@ -224,6 +224,7 @@
 (define get-try operand1)
 (define get-catch operand2)
 (define get-finally operand3)
+(define getfuncname operand1)
 
 (define catch-var
   (lambda (catch-statement)
@@ -395,3 +396,7 @@
                             (makestr (string-append str (string-append " " (symbol->string (car vals)))) (cdr vals))))))
       (error-break (display (string-append str (makestr "" vals)))))))
 
+ ; Adds function to the environment
+(define add_func
+  (lambda (statement environment)
+    (insert (cadr statement) (cddr statement) environment)))
