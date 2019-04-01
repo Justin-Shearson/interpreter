@@ -1,5 +1,5 @@
 #lang racket
-(require "interpreter.rkt")
+(require "interpreter2.rkt")
 
 (define return (lambda (v) v))
 
