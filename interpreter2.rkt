@@ -382,8 +382,12 @@
       [(and (null? lis) (null? param-lis)) (cons (topframe newenv) (get-dynamic-scope-env oldenv fname))]
       [(null? param-lis) (myerror "ParamError: You have to many parameters for the function")]
       [(null? lis) (myerror "Paramerror: You have too few parameters for the function")]
-      [else (extra-params (insert (car param-lis) (eval-expression (car lis) oldenv return break continue throw) newenv) (cdr param-lis) (cdr lis) oldenv fname return break continue throw)]))
-)
+      [else (extra-params
+             (insert (car param-lis) (eval-expression (car lis) oldenv return break continue throw) newenv)
+             (cdr param-lis)
+             (cdr lis)
+             oldenv fname return break continue throw)])))
+
 (define insert-params
   (lambda (env param-lis lis return break continue throw)
     (cond
@@ -429,21 +433,13 @@
         env
         (operand1 env))))
 
-; Will get the return value
-; 2 cases: a) return_value
-;          b) (return_value, env)
-(define get-value-from-val-env-list
-  (lambda value-or-value-with-state
-    (if (list? value-or-value-with-state)
-        (car value-or-value-with-state)
-        value-or-value-with-state)))
 
 ; Gets the correct scoping environment
 (define get-dynamic-scope-env
   (lambda (environment func-name)
     (if (exists-in-list? func-name (variables (topframe environment)))
         environment
-        (get-dynamic-scope-env (remainingframes environment) func-name))))
+        (push-frame (get-dynamic-scope-env (remainingframes environment) func-name)))))
 
 ; Functions to convert the Scheme #t and #f to our languages true and false, and back.
 
