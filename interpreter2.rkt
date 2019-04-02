@@ -51,7 +51,7 @@
 (define interpret-function
   (lambda (statement environment return break continue throw)
     (if (eq? (get-func-name statement) 'main)
-        (interpret-statement-list (get-func-body statement) environment return break continue throw)
+        (pop-frame (interpret-statement-list (get-func-body statement) (push-frame environment) return break continue throw))
         (add-func statement environment))))
 
 ; Calls a function
@@ -374,7 +374,19 @@
 
 (define add-params
   (lambda (fname lis env return break continue throw)
-    (insert-params (push-frame env) (car (lookup fname env)) lis return break continue throw)))
+    (extra-params (newenvironment) (car (lookup fname env)) lis env fname return break continue throw)))
+
+(define extra-params
+  (lambda (newenv param-lis lis oldenv fname return break continue throw)
+    (cond
+      [(and (null? lis) (null? param-lis)) (cons (topframe newenv) (get-dynamic-scope-env oldenv fname))]
+      [(null? param-lis) (myerror "ParamError: You have to many parameters for the function")]
+      [(null? lis) (myerror "Paramerror: You have too few parameters for the function")]
+      [else (extra-params
+             (insert (car param-lis) (eval-expression (car lis) oldenv return break continue throw) newenv)
+             (cdr param-lis)
+             (cdr lis)
+             oldenv fname return break continue throw)])))
 
 (define insert-params
   (lambda (env param-lis lis return break continue throw)
@@ -421,15 +433,13 @@
         env
         (operand1 env))))
 
-; Will get the return value
-; 2 cases: a) return_value
-;          b) (return_value, env)
-(define get-value-from-val-env-list
-  (lambda value-or-value-with-state
-    (if (list? value-or-value-with-state)
-        (car value-or-value-with-state)
-        value-or-value-with-state)))
-  
+
+; Gets the correct scoping environment
+(define get-dynamic-scope-env
+  (lambda (environment func-name)
+    (if (exists-in-list? func-name (variables (topframe environment)))
+        environment
+        (push-frame (get-dynamic-scope-env (remainingframes environment) func-name)))))
 
 ; Functions to convert the Scheme #t and #f to our languages true and false, and back.
 
