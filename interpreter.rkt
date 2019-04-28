@@ -18,13 +18,16 @@
 ; The returned value is in the environment.
 (define interpret
   (lambda (file)
-    (scheme->language
+    ;(scheme->language ; right here is where we look for main method
      (call/cc
       (lambda (return)
         (interpret-class-definitions-list (parser file) (newenvironment) return
                 (lambda (env) (myerror "Break used outside of loop"))
                 (lambda (env) (myerror "Continue used outside of loop"))
-                (lambda (v env) (myerror "Uncaught exception thrown"))))))))
+                (lambda (v env) (myerror "Uncaught exception thrown")))))));)
+
+;(define run-main-method
+;  (lambda env))
 
 (define interpret-class-definitions-list
   (lambda (statement-list environment return break continue throw)
@@ -37,7 +40,7 @@
   (lambda (statement environment return break continue throw)
     (cond
       ((eq? 'class (statement-type statement))
-       (interpret-statement statement environment return break continue throw)) ; MUST CALL ADD CLASS HELPER HERE
+       (interpret-class-statement-list (cadddr statement) environment return break continue throw)) ; MUST CALL ADD CLASS HELPER HERE
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
 ; interprets a list of statements.  The environment from each statement is used for the next ones.
