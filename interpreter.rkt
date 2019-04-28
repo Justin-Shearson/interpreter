@@ -74,6 +74,8 @@
        (interpret-try statement environment return break continue throw))
       ((eq? 'function (statement-type statement))
        (interpret-function statement environment return break continue throw))
+      ((eq? 'static-function (statement-type statement))
+       (interpret-function statement environment return break continue throw))
       ((eq? 'funcall (statement-type statement))
        (interpret-funcall statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
@@ -81,8 +83,7 @@
 ; Adds a function to our environment
 (define interpret-function
   (lambda (statement environment return break continue throw)
-    (pop-frame (interpret-class-statement-list (get-func-body statement) (push-frame environment) return break continue throw))
-    ))
+    (add-func statement environment)))
 
 ; Calls a function and returns any value returned by the function
 (define interpret-funcall
