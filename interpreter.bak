@@ -2,8 +2,7 @@
 ;  and comment the (require "simpleParser.rkt")
 #lang racket
 (provide (all-defined-out))
-(require "helper.rkt")
-(require "classParser.rkt")
+(require "functionParser.rkt")
 ; (load "simpleParser.scm")
 
 
@@ -19,57 +18,20 @@
 ; The returned value is in the environment.
 (define interpret
   (lambda (file)
-    (scheme->language ; right here is where we look for main method
-      (run-main-method
-       (call/cc
-        (lambda (return)
-          (interpret-class-definitions-list (parser file) (newenvironment) return
-                  (lambda (env) (myerror "Break used outside of loop"))
-                  (lambda (env) (myerror "Continue used outside of loop"))
-                  (lambda (v env) (myerror "Uncaught exception thrown")))))
-      (lambda (v) v)
-      (lambda (env) (myerror "Break used outside of loop"))
-      (lambda (env) (myerror "Continue used outside of loop"))
-      (lambda (v env) (myerror "Uncaught exception thrown"))))))
-
-;;(define cval (box '(Object ((main y x minmax) (#&(() ((return 5))) #&10 #&5 #&(((a b min) ((if (|| (&& min (< a b)) (&& (! min) (> a b))) (return true) (return false))))))) (()()) (()()))))
-;;(define environment (list (cons '(C) (cons (list cval) '()))))
-
-;;(call/cc (lambda (return)
-;(run-main-method environment
- ;     return
-  ;    (lambda (env) (myerror "Break used outside of loop"))
-   ;   (lambda (env) (myerror "Continue used outside of loop"))
-    ;  (lambda (v env) (myerror "Uncaught exception thrown")))))
-
-(define run-main-method
-  (lambda (environment return break continue throw)
-    (pop-frame (interpret-class-statement-list (cadr (lookup 'main (get-main-scoped-env environment))) (push-frame environment) return break continue throw))))
-
-(define get-main-scoped-env
-  (lambda (env)
-    (list (cadr (unbox (caadr (car env)))))))
-
-(define interpret-class-definitions-list
-  (lambda (statement-list environment return break continue throw)
-    (if (null? statement-list)
-      environment
-      (interpret-class-definitions-list (cdr statement-list) (interpret-classdef (car statement-list)
-                       (make-valid environment) return break continue throw) return break continue throw))))
-
-(define interpret-classdef
-  (lambda (statement environment return break continue throw)
-    (cond
-      ((eq? 'class (statement-type statement))
-       (interpret-class-statement-list (cadddr statement) environment return break continue throw)) ; MUST CALL ADD CLASS HELPER HERE
-      (else (myerror "Unknown statement:" (statement-type statement))))))
+    (scheme->language
+     (call/cc
+      (lambda (return)
+        (interpret-statement-list (parser file) (newenvironment) return
+                                  (lambda (env) (myerror "Break used outside of loop")) (lambda (env)
+                                                                    (myerror "Continue used outside of loop"))
+                                  (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
 ; interprets a list of statements.  The environment from each statement is used for the next ones.
-(define interpret-class-statement-list
+(define interpret-statement-list
   (lambda (statement-list environment return break continue throw)
     (if (null? statement-list)
         environment
-        (interpret-class-statement-list (cdr statement-list) (interpret-statement (car statement-list)
+        (interpret-statement-list (cdr statement-list) (interpret-statement (car statement-list)
                          (make-valid environment) return break continue throw) return break continue throw))))
 
 ; interpret a statement in the environment with continuations for return, break, continue, throw
@@ -98,8 +60,6 @@
        (interpret-try statement environment return break continue throw))
       ((eq? 'function (statement-type statement))
        (interpret-function statement environment return break continue throw))
-      ((eq? 'static-function (statement-type statement))
-       (interpret-function statement environment return break continue throw))
       ((eq? 'funcall (statement-type statement))
        (interpret-funcall statement environment return break continue throw))
       (else (myerror "Unknown statement:" (statement-type statement))))))
@@ -107,14 +67,16 @@
 ; Adds a function to our environment
 (define interpret-function
   (lambda (statement environment return break continue throw)
-    (add-func statement environment)))
+    (if (eq? (get-func-name statement) 'main)
+        (pop-frame (interpret-statement-list (get-func-body statement) (push-frame environment) return break continue throw))
+        (add-func statement environment))))
 
 ; Calls a function and returns any value returned by the function
 (define interpret-funcall
   (lambda (statement environment return break continue throw)
     (call/cc
      (lambda (return)
-       (pop-frame (interpret-class-statement-list (operand1 (lookup-in-env (get-func-name statement) environment))
+       (pop-frame (interpret-statement-list (operand1 (lookup-in-env (get-func-name statement) environment))
                                             (add-params (get-func-name statement) (get-func-inputs statement) environment return break continue throw)
                                             return
                                             (lambda (env) (break (pop-frame env)))
@@ -165,7 +127,7 @@
 ; Interprets a block.  The break, continue, and throw continuations must be adjusted to pop the environment
 (define interpret-block
   (lambda (statement environment return break continue throw)
-    (pop-frame (interpret-class-statement-list (cdr statement)
+    (pop-frame (interpret-statement-list (cdr statement)
                                          (push-frame environment)
                                          return
                                          (lambda (env) (break (pop-frame env)))
@@ -188,16 +150,16 @@
   (lambda (catch-statement environment return break continue throw jump finally-block)
     (cond
       ((null? catch-statement)
-       (lambda (ex env) (throw ex (interpret-block finally-block env return break continue throw))))
+       (lambda (ex env) (throw ex (interpret-block finally-block env return break continue throw)))) 
       ((not (eq? 'catch (statement-type catch-statement))) (myerror "Incorrect catch statement"))
       (else (lambda (ex env)
               (jump (interpret-block finally-block
-                                     (pop-frame (interpret-class-statement-list
-                                                 (get-body catch-statement)
+                                     (pop-frame (interpret-statement-list 
+                                                 (get-body catch-statement) 
                                                  (insert (catch-var catch-statement) ex (push-frame env))
-                                                 return
-                                                 (lambda (env2) (break (pop-frame env2)))
-                                                 (lambda (env2) (continue (pop-frame env2)))
+                                                 return 
+                                                 (lambda (env2) (break (pop-frame env2))) 
+                                                 (lambda (env2) (continue (pop-frame env2))) 
                                                  (lambda (v env2) (throw v (pop-frame env2)))))
                                      return break continue throw)))))))
 
@@ -340,84 +302,15 @@
 (define get-func-params operand2)
 (define get-func-body operand3)
 (define get-func-inputs cddr)
-(define get-var-env caaar)
-(define get-first-value caadar)
-(define get-first-name caaar)
-(define get-value-list cadar)
-(define get-class-name cadr)
-(define get-extension caddr)
-(define get-superclass
-  (lambda (lis)
-      (cadr (caddr lis))
-  )
-)
+
 (define catch-var
   (lambda (catch-statement)
     (car (operand1 catch-statement))))
-(define get-funct-vars 
-  (lambda (lis)
-    (car (cdddr lis))
-  )
-)
 
-(define atom?
-  (lambda (x)
-    (and (not (list? x)) (not (null? x)))))
 
 ;------------------------
 ; Environment/State Functions
 ;------------------------
-;((class A (extends B) ((var x 5) (var y 10) (static-function main () ((var a (new A)) (return (+ (dot a x) (dot a y))))))))
-(define find-value
-  (lambda (name env)
-  (lookup-variable name (cadddr env)))
-)
-
-(define create-class-environment
-  (lambda (class)
-    (interpret-class-statement-list (get-funct-vars class) (newenvironment) 'a 'a 'a 'a)
-))
-(define create-function-frame
-  (lambda (env)
-    (cond
-      ((null? (get-value-list env)) (newframe))
-      ((list? (get-value 0 (get-value-list env))) 
-      (add-to-frame (get-first-name env) (get-value 0 (get-value-list env)) (create-function-frame (removeFirst env))))
-      (else (create-function-frame (removeFirst env)))
-    )
-  )
-)
-(define create-variable-frame
-  (lambda (env)
-    (cond
-      ((null? (get-value-list env)) (newframe))
-      ((atom? (get-value 0 (get-value-list env)))
-      (add-to-frame (get-first-name env) (get-value 0 (get-value-list env)) (create-variable-frame (removeFirst env))))
-      (else (create-variable-frame (removeFirst env)))
-      )
-  )
-)
-
-(define createClassClosure
-  (lambda (parse)
-    (if(null? (get-extension parse))
-    (generateClassClosure (get-class-name parse) 'Object
-    (create-function-frame (create-class-environment parse))(create-variable-frame (create-class-environment parse))
-    )
-    (generateClassClosure (get-class-name parse) (get-superclass parse)
-    (create-function-frame (create-class-environment parse))(create-variable-frame (create-class-environment parse))
-    ))
-  )
-)
-
-
-;(define reformat-environment
-  ;(lambda (env)
-    ;(cond 
-      ;((null? (cadar env)) '(()()))
-      ;(#f '())
-  ;)
-;))
 
 ; create a new empty environment
 (define newenvironment
@@ -430,12 +323,6 @@
   (lambda ()
     '(() ())
     ))
-
-(define removeFirst 
-  (lambda (env)
-    (list (cons (cdaar env) (list (cdr (cadar env)))))
-  )
-)
 
 ; add a frame onto the top of the environment
 (define push-frame
@@ -472,7 +359,7 @@
 (define lookup
   (lambda (var environment)
     (lookup-variable var environment)))
-
+  
 ; A helper function that does the lookup.  Returns an error if the variable does not have a legal value
 (define lookup-variable
   (lambda (var environment)
@@ -607,8 +494,8 @@
 ; Functions to convert the Scheme #t and #f to our languages true and false, and back.
 
 (define language->scheme
-  (lambda (v)
-    (cond
+  (lambda (v) 
+    (cond 
       ((eq? v 'false) #f)
       ((eq? v 'true) #t)
       (else v))))
@@ -634,3 +521,4 @@
                             (makestr (string-append
                                       str (string-append " " (symbol->string (car vals)))) (cdr vals))))))
       (error-break (display (string-append str (makestr "" vals)))))))
+
