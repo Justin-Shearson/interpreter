@@ -115,13 +115,32 @@
   (lambda (statement environment return break continue throw)
     (call/cc
      (lambda (return)
-       (pop-frame (interpret-class-statement-list (operand1 (lookup-in-env (get-func-name statement environment return break continue throw)
-                                                                           (check-for-class statement environment return break continue throw)))
-                                            (add-params (get-func-name statement) (get-func-inputs statement) environment return break continue throw)
+       (pop-frame (interpret-class-statement-list (operand1 (get-func-from-class statement environment)) ; gets statement list
+                                            (add-params (func-name-from-funcall statement) (get-func-inputs statement) environment return break continue throw)
                                             return
                                             (lambda (env) (break (pop-frame env)))
                                             (lambda (env) (continue (pop-frame env)))
                                             (lambda (v env) (throw v (pop-frame env)))))))))
+
+;(define get-instance-env
+;  (lambda (statement environment)
+;    (let ((instance (lookup (operand1 (operand1 statement)) environment)))
+;      (add-methods instance (add-fields instance (push-frame environment))))))
+
+;(define add-list-to-env
+;  (lambda (add-env env)
+;    (if ())))
+
+(define func-name-from-funcall
+  (lambda (statement)
+    (operand2 (operand1 statement))))
+
+(define get-func-from-class
+  (lambda (statement environment)
+    (let ((instance (lookup (operand1 (operand1 statement)) environment)))
+      (if (has-function (operand2 (operand1 statement)) instance)
+          (find-function (operand2 (operand1 statement)) instance)
+          (error "function doesn't exist")))))
 
 (define check-for-class
   (lambda (statement environment return break continue throw)
