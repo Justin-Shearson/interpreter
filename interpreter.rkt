@@ -31,7 +31,7 @@
       returnmain
       (lambda (env) (myerror "Break used outside of loop"))
       (lambda (env) (myerror "Continue used outside of loop"))
-      (lambda (v env) (myerror "Uncaught exception thrown")))))))
+      (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
 ;;(define cval (box '(Object ((main y x minmax) (#&(() ((return 5))) #&10 #&5 #&(((a b min) ((if (|| (&& min (< a b)) (&& (! min) (> a b))) (return true) (return false))))))) (()()) (()()))))
 ;;(define environment (list (cons '(C) (cons (list cval) '()))))
@@ -121,6 +121,12 @@
                                             (lambda (env) (break (pop-frame env)))
                                             (lambda (env) (continue (pop-frame env)))
                                             (lambda (v env) (throw v (pop-frame env)))))))))
+
+; Creates an instance closure and returns it
+; possible input: (new A) as statement list
+(define interpret-new
+  (lambda (statement environment return break continue throw)
+    (lookup (operand1 statement) environment)))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
@@ -237,6 +243,7 @@
 (define eval-expression
   (lambda (expr environment return break continue throw)
     (cond
+      ((and (list? expr) (eq? 'new (statement-type expr))) (interpret-new expr environment return break continue throw))
       ((number? expr) expr)
       ((eq? expr 'true) #t)
       ((eq? expr 'false) #f)
