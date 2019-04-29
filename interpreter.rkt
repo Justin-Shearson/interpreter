@@ -43,7 +43,11 @@
 
 (define run-main-method
   (lambda (environment return break continue throw)
-    (pop-frame (interpret-class-statement-list (cadr (lookup 'main (list (cadr (unbox (caadr (car environment))))))) (push-frame environment) return break continue throw))))
+    (pop-frame (interpret-class-statement-list (cadr (lookup 'main (get-main-scoped-env environment))) (push-frame environment) return break continue throw))))
+
+(define get-main-scoped-env
+  (lambda (env)
+    (list (cadr (unbox (caadr (car env)))))))
 
 (define interpret-class-definitions-list
   (lambda (statement-list environment return break continue throw)
