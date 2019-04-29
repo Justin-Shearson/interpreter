@@ -420,7 +420,7 @@
 ;find-value finds the value associated with the name of the value of the variable
 ;The environment in this case is the value of the class
 ;ex: (Object ((main) (#&(() ((return 6))))) () (() ()))
-(define find-value
+(define find-class-value
   (lambda (name env)
   (lookup-variable name (list (cadddr env))))
 )
@@ -430,7 +430,7 @@
   (exists-in-list? name (car (cadddr env))))
 )
 
-(define find-function
+(define find-class-function
   (lambda (name env)
   (lookup-variable name (list (cadr env))))
 )
