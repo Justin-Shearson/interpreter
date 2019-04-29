@@ -48,6 +48,17 @@
 ; Environment/State Functions
 ;------------------------
 
+;combine-environment takes the name of a class and an environment.
+;and creates a new frame on top of the environment with the functions and 
+;values from within the class closure and puts them into the new frame.
+;Example: (combine-environment 'Pizza '(((Pizza) (PizzaClassCLosure)))'
+;((fnames and variables from pizza)(fbodies and values from pizza)((Pizza)(PizzaClassClosure)))
+(define combine-environment
+  (lambda (cname env)
+    (lookup-in-frame cname (car env))
+  )
+)
+
 ;Create classClosure takes a parsed class and returns the class closure in the format of
 ;((cname) (super-name (methods) (constructor) (environment))
 
