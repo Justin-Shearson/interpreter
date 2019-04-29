@@ -115,18 +115,28 @@
   (lambda (statement environment return break continue throw)
     (call/cc
      (lambda (return)
-       (pop-frame (interpret-class-statement-list (operand1 (lookup-in-env (get-func-name statement) environment))
+       (pop-frame (interpret-class-statement-list (operand1 (lookup-in-env (get-func-name statement environment return break continue throw)
+                                                                           (check-for-class statement environment return break continue throw)))
                                             (add-params (get-func-name statement) (get-func-inputs statement) environment return break continue throw)
                                             return
                                             (lambda (env) (break (pop-frame env)))
                                             (lambda (env) (continue (pop-frame env)))
                                             (lambda (v env) (throw v (pop-frame env)))))))))
 
-; Creates an instance closure and returns it
-; possible input: (new A) as statement list
-(define interpret-new
+(define check-for-class
   (lambda (statement environment return break continue throw)
-    (lookup (operand1 statement) environment)))
+    (if (list? (operand1 statement))
+      (let ((instance (lookup (operand1 (operand1 statement)) environment)))
+        (append (cadr instance) (cadddr instance)))
+      environment)))
+
+; Calls the return continuation with the given expression value
+(define interpret-dot
+  (lambda (statement environment return break continue throw)
+            (let ((instance (lookup (operand1 statement) environment)))
+              (cond
+                [(has-function (operand2 statement) instance) (find-function (operand2 statement) instance)]
+                [(has-value (operand2 statement) instance) (find-value (operand2 statement) instance)]))))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
@@ -243,7 +253,10 @@
 (define eval-expression
   (lambda (expr environment return break continue throw)
     (cond
-      ((and (list? expr) (eq? 'new (statement-type expr))) (interpret-new expr environment return break continue throw))
+      ((and (list? expr) (eq? 'new (statement-type expr)))
+       (interpret-new expr environment return break continue throw))
+      ((and (list? expr) (eq? 'dot (statement-type expr)))
+       (interpret-dot expr environment return break continue throw))
       ((number? expr) expr)
       ((eq? expr 'true) #t)
       ((eq? expr 'false) #f)
@@ -308,6 +321,11 @@
         (= val1 val2)
         (eq? val1 val2))))
 
+        ; Creates an instance closure and returns it
+        ; possible input: (new A) as statement list
+        (define interpret-new
+          (lambda (statement environment return break continue throw)
+            (lookup (operand1 statement) environment)))
 
 ;-----------------
 ; HELPER FUNCTIONS
@@ -344,7 +362,11 @@
 (define get-catch operand2)
 (define get-finally operand3)
 (define get-return-value operand1)
-(define get-func-name operand1)
+(define get-func-name
+  (lambda (statement environment return break continue throw)
+    (if (list? (operand1 statement))
+      (interpret-dot (operand1 statement) environment return break continue throw) ; if (operand1 statement) is list
+      (operand1 statement))))
 (define get-func-params operand2)
 (define get-func-body operand3)
 (define get-func-inputs cddr)
@@ -354,6 +376,7 @@
 (define get-value-list cadar)
 (define get-class-name cadr)
 (define get-extension caddr)
+
 (define get-superclass
   (lambda (lis)
       (cadr (caddr lis))
@@ -380,13 +403,26 @@
 ;ex: (Object ((main) (#&(() ((return 6))))) () (() ()))
 (define find-value
   (lambda (name env)
-  (lookup-variable name (cadddr env)))
+  (lookup-variable name (list (cadddr env))))
+)
+
+(define has-value
+  (lambda (name env)
+  (exists-in-list? name (car (cadddr env))))
 )
 
 (define find-function
   (lambda (name env)
-  (lookup-variable name (cadr env)))
+  (lookup-variable name (list (cadr env))))
 )
+
+(define has-function
+  (lambda (name env)
+  (exists-in-list? name (caadr env)))
+)
+
+(define is-function
+  (lambda (value) (list? value)))
 
 ;((class A (extends B) ((var x 5) (var y 10) (static-function main () ((var a (new A)) (return (+ (dot a x) (dot a y))))))))
 (define create-class-environment
