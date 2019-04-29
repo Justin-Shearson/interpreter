@@ -19,13 +19,36 @@
 ; The returned value is in the environment.
 (define interpret
   (lambda (file)
-    (scheme->language
-     (call/cc
-      (lambda (return)
-        (interpret-class-definitions-list (parser file) (newenvironment) return
-                (lambda (env) (myerror "Break used outside of loop"))
-                (lambda (env) (myerror "Continue used outside of loop"))
-                (lambda (v env) (myerror "Uncaught exception thrown"))))))))
+    (scheme->language ; right here is where we look for main method
+      (run-main-method
+       (call/cc
+        (lambda (return)
+          (interpret-class-definitions-list (parser file) (newenvironment) return
+                  (lambda (env) (myerror "Break used outside of loop"))
+                  (lambda (env) (myerror "Continue used outside of loop"))
+                  (lambda (v env) (myerror "Uncaught exception thrown")))))
+      (lambda (v) v)
+      (lambda (env) (myerror "Break used outside of loop"))
+      (lambda (env) (myerror "Continue used outside of loop"))
+      (lambda (v env) (myerror "Uncaught exception thrown"))))))
+
+;;(define cval (box '(Object ((main y x minmax) (#&(() ((return 5))) #&10 #&5 #&(((a b min) ((if (|| (&& min (< a b)) (&& (! min) (> a b))) (return true) (return false))))))) (()()) (()()))))
+;;(define environment (list (cons '(C) (cons (list cval) '()))))
+
+;;(call/cc (lambda (return)
+;(run-main-method environment
+ ;     return
+  ;    (lambda (env) (myerror "Break used outside of loop"))
+   ;   (lambda (env) (myerror "Continue used outside of loop"))
+    ;  (lambda (v env) (myerror "Uncaught exception thrown")))))
+
+(define run-main-method
+  (lambda (environment return break continue throw)
+    (pop-frame (interpret-class-statement-list (cadr (lookup 'main (get-main-scoped-env environment))) (push-frame environment) return break continue throw))))
+
+(define get-main-scoped-env
+  (lambda (env)
+    (list (cadr (unbox (caadr (car env)))))))
 
 (define interpret-class-definitions-list
   (lambda (statement-list environment return break continue throw)
@@ -38,7 +61,7 @@
   (lambda (statement environment return break continue throw)
     (cond
       ((eq? 'class (statement-type statement))
-       (interpret-statement statement environment return break continue throw)) ; MUST CALL ADD CLASS HELPER HERE
+       (interpret-class-statement-list (cadddr statement) environment return break continue throw)) ; MUST CALL ADD CLASS HELPER HERE
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
 ; interprets a list of statements.  The environment from each statement is used for the next ones.
