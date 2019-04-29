@@ -20,6 +20,7 @@
 (define interpret
   (lambda (file)
     (scheme->language ; right here is where we look for main method
+      (call/cc (lambda (returnmain)
       (run-main-method
        (call/cc
         (lambda (return)
@@ -27,10 +28,10 @@
                   (lambda (env) (myerror "Break used outside of loop"))
                   (lambda (env) (myerror "Continue used outside of loop"))
                   (lambda (v env) (myerror "Uncaught exception thrown")))))
-      (lambda (v) v)
+      returnmain
       (lambda (env) (myerror "Break used outside of loop"))
       (lambda (env) (myerror "Continue used outside of loop"))
-      (lambda (v env) (myerror "Uncaught exception thrown"))))))
+      (lambda (v env) (myerror "Uncaught exception thrown")))))))
 
 ;;(define cval (box '(Object ((main y x minmax) (#&(() ((return 5))) #&10 #&5 #&(((a b min) ((if (|| (&& min (< a b)) (&& (! min) (> a b))) (return true) (return false))))))) (()()) (()()))))
 ;;(define environment (list (cons '(C) (cons (list cval) '()))))
@@ -61,7 +62,7 @@
   (lambda (statement environment return break continue throw)
     (cond
       ((eq? 'class (statement-type statement))
-       (interpret-class-statement-list (cadddr statement) environment return break continue throw)) ; MUST CALL ADD CLASS HELPER HERE
+          (let ((classClosure (createClassClosure statement))) (insert (caar classClosure) (cadr classClosure) environment))) ; MUST CALL ADD CLASS HELPER HERE
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
 ; interprets a list of statements.  The environment from each statement is used for the next ones.
@@ -354,7 +355,7 @@
 (define catch-var
   (lambda (catch-statement)
     (car (operand1 catch-statement))))
-(define get-funct-vars 
+(define get-funct-vars
   (lambda (lis)
     (car (cdddr lis))
   )
@@ -376,7 +377,7 @@
   (lambda (env)
     (cond
       ((null? (get-value-list env)) (newframe))
-      ((list? (get-value 0 (get-value-list env))) 
+      ((list? (get-value 0 (get-value-list env)))
       (add-to-frame (get-first-name env) (get-value 0 (get-value-list env)) (create-function-frame (removeFirst env))))
       (else (create-function-frame (removeFirst env)))
     )
@@ -408,7 +409,7 @@
 
 ;(define reformat-environment
   ;(lambda (env)
-    ;(cond 
+    ;(cond
       ;((null? (cadar env)) '(()()))
       ;(#f '())
   ;)
@@ -426,7 +427,7 @@
     '(() ())
     ))
 
-(define removeFirst 
+(define removeFirst
   (lambda (env)
     (list (cons (cdaar env) (list (cdr (cadar env)))))
   )

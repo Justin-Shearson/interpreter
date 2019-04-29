@@ -74,7 +74,7 @@
 (define insert-env-closure
   (lambda (closure env)
     (cons (car closure) (list (append (get-body-closure closure) (list env))))))
-    
+
 
 ;generateClassClosure takes a new class closure, a method closure, constructor, and environment
 ;and returns a completed Class Closure
@@ -82,8 +82,8 @@
 (define generateClassClosure
   (lambda (cname superclass methods env)
     (insert-env-closure (insert-constructor-closure (insert-method-closure(newClassClosure cname superclass) methods) '()) env)))
-  
-    
+
+
 
 
 ; create a new empty environment
@@ -133,7 +133,7 @@
 (define lookup
   (lambda (var environment)
     (lookup-variable var environment)))
-  
+
 ; A helper function that does the lookup.  Returns an error if the variable does not have a legal value
 (define lookup-variable
   (lambda (var environment)
@@ -247,8 +247,8 @@
 ; Functions to convert the Scheme #t and #f to our languages true and false, and back.
 
 (define language->scheme
-  (lambda (v) 
-    (cond 
+  (lambda (v)
+    (cond
       ((eq? v 'false) #f)
       ((eq? v 'true) #t)
       (else v))))
@@ -274,4 +274,3 @@
                             (makestr (string-append
                                       str (string-append " " (symbol->string (car vals)))) (cdr vals))))))
       (error-break (display (string-append str (makestr "" vals)))))))
-
