@@ -367,12 +367,20 @@
 ;------------------------
 ; Environment/State Functions
 ;------------------------
-;((class A (extends B) ((var x 5) (var y 10) (static-function main () ((var a (new A)) (return (+ (dot a x) (dot a y))))))))
+;find-value finds the value associated with the name of the value of the variable
+;The environment in this case is the value of the class
+;ex: (Object ((main) (#&(() ((return 6))))) () (() ()))
 (define find-value
   (lambda (name env)
   (lookup-variable name (cadddr env)))
 )
 
+(define find-function
+  (lambda (name env)
+  (lookup-variable name (cadr env)))
+)
+
+;((class A (extends B) ((var x 5) (var y 10) (static-function main () ((var a (new A)) (return (+ (dot a x) (dot a y))))))))
 (define create-class-environment
   (lambda (class)
     (interpret-class-statement-list (get-funct-vars class) (newenvironment) 'a 'a 'a 'a)
