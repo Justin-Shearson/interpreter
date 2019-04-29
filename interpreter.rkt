@@ -321,10 +321,11 @@
 (define get-first-value caadar)
 (define get-first-name caaar)
 (define get-value-list cadar)
-(define get-class-name cadar)
+(define get-class-name cadr)
+(define get-extension caddr)
 (define get-superclass
   (lambda (lis)
-      (cadr (caddar lis))
+      (cadr (caddr lis))
   )
 )
 (define catch-var
@@ -332,7 +333,7 @@
     (car (operand1 catch-statement))))
 (define get-funct-vars 
   (lambda (lis)
-    (car (cdddar lis))
+    (car (cdddr lis))
   )
 )
 
@@ -371,9 +372,13 @@
 
 (define createClassClosure
   (lambda (parse)
-    (generateClassClosure (get-class-name parse) (get-superclass parse)
+    (if(null? (get-extension parse))
+    (generateClassClosure (get-class-name parse) 'Object
     (create-function-frame (create-class-environment parse))(create-variable-frame (create-class-environment parse))
     )
+    (generateClassClosure (get-class-name parse) (get-superclass parse)
+    (create-function-frame (create-class-environment parse))(create-variable-frame (create-class-environment parse))
+    ))
   )
 )
 
