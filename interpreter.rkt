@@ -116,7 +116,7 @@
     (call/cc
      (lambda (return)
        (pop-frame (interpret-class-statement-list (operand1 (get-func-from-class statement environment)) ; gets statement list
-                                            (add-params (func-name-from-funcall statement) (get-func-inputs statement) (get-instance-env statement environment) return break continue throw)
+                                            (add-params (operand1 (operand1 statement)) (func-name-from-funcall statement) (get-func-inputs statement) (get-instance-env statement environment) return break continue throw)
                                             return
                                             (lambda (env) (break (pop-frame env)))
                                             (lambda (env) (continue (pop-frame env)))
@@ -616,7 +616,7 @@
 ;  of scope frames with an empty frame (frame placeholder used for the purpose of staying consistent with the
 ;  pop-frame calls)
 (define add-params
-  (lambda (fname lis env return break continue throw)
+  (lambda (cname fname lis env return break continue throw)
     (extra-params (newenvironment) (car (lookup fname env)) lis env fname return break continue throw)))
 
 ; Updates the environment to add the variables from the parameters from a function and assigns them to the
