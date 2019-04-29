@@ -2,6 +2,7 @@
 ;  and comment the (require "simpleParser.rkt")
 #lang racket
 (provide (all-defined-out))
+(require "helper.rkt")
 (require "classParser.rkt")
 ; (load "simpleParser.scm")
 
@@ -339,15 +340,79 @@
 (define get-func-params operand2)
 (define get-func-body operand3)
 (define get-func-inputs cddr)
-
+(define get-var-env caaar)
+(define get-first-value caadar)
+(define get-first-name caaar)
+(define get-value-list cadar)
+(define get-class-name cadr)
+(define get-extension caddr)
+(define get-superclass
+  (lambda (lis)
+      (cadr (caddr lis))
+  )
+)
 (define catch-var
   (lambda (catch-statement)
     (car (operand1 catch-statement))))
+(define get-funct-vars 
+  (lambda (lis)
+    (car (cdddr lis))
+  )
+)
 
+(define atom?
+  (lambda (x)
+    (and (not (list? x)) (not (null? x)))))
 
 ;------------------------
 ; Environment/State Functions
 ;------------------------
+;((class A (extends B) ((var x 5) (var y 10) (static-function main () ((var a (new A)) (return (+ (dot a x) (dot a y))))))))
+(define create-class-environment
+  (lambda (class)
+    (interpret-class-statement-list (get-funct-vars class) (newenvironment) 'a 'a 'a 'a)
+))
+(define create-function-frame
+  (lambda (env)
+    (cond
+      ((null? (get-value-list env)) (newframe))
+      ((list? (get-value 0 (get-value-list env))) 
+      (add-to-frame (get-first-name env) (get-value 0 (get-value-list env)) (create-function-frame (removeFirst env))))
+      (else (create-function-frame (removeFirst env)))
+    )
+  )
+)
+(define create-variable-frame
+  (lambda (env)
+    (cond
+      ((null? (get-value-list env)) (newframe))
+      ((atom? (get-value 0 (get-value-list env)))
+      (add-to-frame (get-first-name env) (get-value 0 (get-value-list env)) (create-variable-frame (removeFirst env))))
+      (else (create-variable-frame (removeFirst env)))
+      )
+  )
+)
+
+(define createClassClosure
+  (lambda (parse)
+    (if(null? (get-extension parse))
+    (generateClassClosure (get-class-name parse) 'Object
+    (create-function-frame (create-class-environment parse))(create-variable-frame (create-class-environment parse))
+    )
+    (generateClassClosure (get-class-name parse) (get-superclass parse)
+    (create-function-frame (create-class-environment parse))(create-variable-frame (create-class-environment parse))
+    ))
+  )
+)
+
+
+;(define reformat-environment
+  ;(lambda (env)
+    ;(cond 
+      ;((null? (cadar env)) '(()()))
+      ;(#f '())
+  ;)
+;))
 
 ; create a new empty environment
 (define newenvironment
@@ -360,6 +425,12 @@
   (lambda ()
     '(() ())
     ))
+
+(define removeFirst 
+  (lambda (env)
+    (list (cons (cdaar env) (list (cdr (cadar env)))))
+  )
+)
 
 ; add a frame onto the top of the environment
 (define push-frame

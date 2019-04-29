@@ -396,6 +396,18 @@
       [(null? lis) (myerror "Paramerror: You have too few parameters for the function")]
       [else (insert-params (insert (car param-lis) (eval-expression (car lis) (pop-frame env) return break continue throw) env) (cdr param-lis) (cdr lis) return break continue throw)])))
 
+(define find-layer
+  (lambda (env fname)
+    (down-the-rabbit-hole env fname 0)))
+
+(define down-the-rabbit-hole
+  (lambda (env fname layer)
+    (if (exists? fname (list (car env)))
+        layer
+        (down-the-rabbit-hole (pop-frame env) fname (+ layer 1)))))
+
+
+
 ; Changes the binding of a variable in the environment to a new value
 (define update-existing
   (lambda (var val environment)
