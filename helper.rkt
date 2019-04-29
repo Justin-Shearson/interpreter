@@ -53,11 +53,7 @@
 ;values from within the class closure and puts them into the new frame.
 ;Example: (combine-environment 'Pizza '(((Pizza) (PizzaClassCLosure)))'
 ;((fnames and variables from pizza)(fbodies and values from pizza)((Pizza)(PizzaClassClosure)))
-(define combine-environment
-  (lambda (cname env)
-    (lookup-in-frame cname (car env))
-  )
-)
+
 
 ;Create classClosure takes a parsed class and returns the class closure in the format of
 ;((cname) (super-name (methods) (constructor) (environment))
@@ -75,6 +71,35 @@
 (define insert-method-closure
   (lambda (closure methods)
     (cons (car closure) (list (cons (get-super-class closure) (list methods))))))
+
+;combine-environment takes the name of a class and an environment.
+;and creates a new frame on top of the environment with the functions and 
+;values from within the class closure and puts them into the new frame.
+;Example: (combine-environment 'Pizza '(((Pizza) (PizzaClassCLosure)))'
+;((fnames and variables from pizza)(fbodies and values from pizza)((Pizza)(PizzaClassClosure)))
+(define combine-env
+  (lambda (cname env)
+    (add-frame (create-funct-val-frame (lookup-in-env cname env)) env)
+  )
+)
+;copy-to-frame takes two frames f1 and f2 and copies all of f1 into f2
+(define copy-to-frame
+  (lambda (f1 f2)
+    (cons (append (car f1) (car f2)) (list (append (cadr f1) (cadr f2))))
+  )
+)
+
+(define add-frame
+  (lambda (frame env)
+    (cons frame env)
+  )
+)
+
+(define create-funct-val-frame
+  (lambda (cclosure)
+    (copy-to-frame (cadr cclosure) (cadddr cclosure))
+  )
+)
 
 ;insert constructor
 (define insert-constructor-closure
