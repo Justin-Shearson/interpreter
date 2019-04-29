@@ -76,14 +76,13 @@
     (cons (car closure) (list (append (get-body-closure closure) (list env))))))
     
 
-;createClassClosure takes a new class closure, a method closure, constructor, and environment
+;generateClassClosure takes a new class closure, a method closure, constructor, and environment
 ;and returns a completed Class Closure
 ;'((class A (extends B) ((var x 5) (var y 10) (static-function main () ((var a (new A)) (return (+ (dot a x) (dot a y))))))))
-(define createClassClosure
+(define generateClassClosure
   (lambda (cname superclass methods env)
     (insert-env-closure (insert-constructor-closure (insert-method-closure(newClassClosure cname superclass) methods) '()) env)))
   
-
     
 
 
