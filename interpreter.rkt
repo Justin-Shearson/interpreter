@@ -18,10 +18,10 @@
 ; The main function.  Calls parser to get the parse tree and interprets it with a new environment.
 ; The returned value is in the environment.
 (define interpret
-  (lambda (file)
+  (lambda (file cname)
     (scheme->language ; right here is where we look for main method
       (call/cc (lambda (returnmain)
-      (run-main-method
+      (run-main-method cname
        (call/cc
         (lambda (return)
           (interpret-class-definitions-list (parser file) (newenvironment) return
@@ -33,23 +33,13 @@
       (lambda (env) (myerror "Continue used outside of loop"))
       (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
-;;(define cval (box '(Object ((main y x minmax) (#&(() ((return 5))) #&10 #&5 #&(((a b min) ((if (|| (&& min (< a b)) (&& (! min) (> a b))) (return true) (return false))))))) (()()) (()()))))
-;;(define environment (list (cons '(C) (cons (list cval) '()))))
-
-;;(call/cc (lambda (return)
-;(run-main-method environment
- ;     return
-  ;    (lambda (env) (myerror "Break used outside of loop"))
-   ;   (lambda (env) (myerror "Continue used outside of loop"))
-    ;  (lambda (v env) (myerror "Uncaught exception thrown")))))
-
 (define run-main-method
-  (lambda (environment return break continue throw)
-    (pop-frame (interpret-class-statement-list (cadr (lookup 'main (get-main-scoped-env environment))) (push-frame environment) return break continue throw))))
+  (lambda (cname environment return break continue throw)
+    (pop-frame (interpret-class-statement-list (cadr (lookup 'main (get-main-scoped-env cname environment))) (push-frame environment) return break continue throw))))
 
 (define get-main-scoped-env
-  (lambda (env)
-    (list (cadr (unbox (caadr (car env)))))))
+  (lambda (cname env)
+    (list (cadr (lookup (string->symbol cname) env)))))
 
 (define interpret-class-definitions-list
   (lambda (statement-list environment return break continue throw)
@@ -151,15 +141,10 @@
 ; Calls the return continuation with the given expression value
 (define interpret-dot
   (lambda (statement environment return break continue throw currentinstance)
-    (if (eq? 'this (operand1 statement))
-      (let ((instance currentinstance))
-        (cond
-          [(has-function (operand2 statement) instance) (find-function (operand2 statement) instance)]
-          [(has-value (operand2 statement) instance) (find-value (operand2 statement) instance)]))
       (let ((instance (lookup (operand1 statement) environment)))
         (cond
           [(has-function (operand2 statement) instance) (find-function (operand2 statement) instance)]
-          [(has-value (operand2 statement) instance) (find-value (operand2 statement) instance)])))))
+          [(has-value (operand2 statement) instance) (find-value (operand2 statement) instance)]))))
 
 ; Calls the return continuation with the given expression value
 (define interpret-return
@@ -624,7 +609,7 @@
 (define extra-params
   (lambda (cname newenv param-lis lis oldenv fname return break continue throw)
     (cond
-      [(and (null? lis) (null? param-lis)) (cons (topframe (insert 'this cname newenv)) (get-dynamic-scope-env oldenv fname))]
+      [(and (null? lis) (null? param-lis)) (cons (topframe (insert 'this (lookup cname oldenv) newenv)) (get-dynamic-scope-env oldenv fname))]
       [(null? param-lis) (myerror "ParamError: You have to many parameters for the function")]
       [(null? lis) (myerror "Paramerror: You have too few parameters for the function")]
       [else (extra-params cname
