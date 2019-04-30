@@ -140,14 +140,6 @@
           (find-function (operand2 (operand1 statement)) instance)
           (error "function doesn't exist")))))
 
-; Checks to ensure that a class exists within the environment
-(define check-for-class
-  (lambda (statement environment return break continue throw)
-    (if (list? (operand1 statement))
-      (let ((instance (lookup (operand1 (operand1 statement)) environment)))
-        (append (cadr instance) (cadddr instance)))
-      environment)))
-
 ; Calls the return continuation with the given expression value
 (define interpret-dot
   (lambda (statement environment return break continue throw currentinstance)
