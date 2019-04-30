@@ -33,14 +33,18 @@
       (lambda (env) (myerror "Continue used outside of loop"))
       (lambda (v env) (myerror "Uncaught exception thrown"))))))))
 
+;Top level function. Takes name of class to run main method on as well as the environment
 (define run-main-method
   (lambda (cname environment return break continue throw)
-    (pop-frame (interpret-class-statement-list (cadr (lookup 'main (get-main-scoped-env cname environment))) (push-frame environment) return break continue throw))))
+    (pop-frame (interpret-class-statement-list (cadr (lookup 'main (get-main-scoped-env cname environment)))
+                                               (push-frame environment) return break continue throw))))
 
+;Returns the environment that is in scope of the main method
 (define get-main-scoped-env
   (lambda (cname env)
     (list (cadr (lookup (string->symbol cname) env)))))
 
+;Interprets the highest level class definitions 
 (define interpret-class-definitions-list
   (lambda (statement-list environment return break continue throw)
     (if (null? statement-list)
@@ -48,11 +52,13 @@
       (interpret-class-definitions-list (cdr statement-list) (interpret-classdef (car statement-list)
                        (make-valid environment) return break continue throw) return break continue throw))))
 
+;Interprets specific class definition
 (define interpret-classdef
   (lambda (statement environment return break continue throw)
     (cond
       ((eq? 'class (statement-type statement))
-          (let ((classClosure (createClassClosure statement))) (insert (caar classClosure) (cadr classClosure) environment))) ; MUST CALL ADD CLASS HELPER HERE
+          (let ((classClosure (createClassClosure statement))) (insert (caar classClosure)
+                                                                       (cadr classClosure) environment)))
       (else (myerror "Unknown statement:" (statement-type statement))))))
 
 ; interprets a list of statements.  The environment from each statement is used for the next ones.
@@ -105,25 +111,28 @@
   (lambda (statement environment return break continue throw)
     (call/cc
      (lambda (return)
-       (pop-frame (interpret-class-statement-list (operand1 (get-func-from-class statement environment)) ; gets statement list
-                                            (add-params (operand1 (operand1 statement)) (func-name-from-funcall statement) (get-func-inputs statement) (get-instance-env statement environment) return break continue throw)
-                                            return
+       (pop-frame (interpret-class-statement-list (operand1 (get-func-from-class statement environment))
+                                            (add-params (operand1 (operand1 statement))
+                                                        (func-name-from-funcall statement)
+                                                        (get-func-inputs statement)
+                                                        (get-instance-env statement environment)
+                                                        return break continue throw) return
                                             (lambda (env) (break (pop-frame env)))
                                             (lambda (env) (continue (pop-frame env)))
                                             (lambda (v env) (throw v (pop-frame env)))))))))
 
+; Gets the instance environment
 (define get-instance-env
   (lambda (statement environment)
     (combine-env (operand1 (operand1 statement)) environment)))
 
-;(define add-list-to-env
-;  (lambda (add-env env)
-;    (if ())))
-
+; Returns the name of the function returned by the func call
 (define func-name-from-funcall
   (lambda (statement)
     (operand2 (operand1 statement))))
 
+; Looks for the instance function from the environment and returns it
+; Returns and error if the function cannot be found
 (define get-func-from-class
   (lambda (statement environment)
     (let ((instance (lookup (operand1 (operand1 statement)) environment)))
@@ -131,6 +140,7 @@
           (find-function (operand2 (operand1 statement)) instance)
           (error "function doesn't exist")))))
 
+; Checks to ensure that a class exists within the environment
 (define check-for-class
   (lambda (statement environment return break continue throw)
     (if (list? (operand1 statement))
@@ -165,8 +175,7 @@
     (update (get-assign-lhs statement)
             (eval-expression (get-assign-rhs statement) environment return break continue throw '()) environment)))
 
-; We need to check if there is an else condition.  Otherwise, we evaluate the expression and do the right
-;  thing.
+; We need to check if there is an else condition. Otherwise, we evaluate the expression and do the right thing
 (define interpret-if
   (lambda (statement environment return break continue throw)
     (cond
@@ -176,7 +185,7 @@
        (interpret-statement (get-else statement) environment return break continue throw '()))
       (else environment))))
 
-; Interprets a while loop.  We must create break and continue continuations for this loop
+; Interprets a while loop. We must create break and continue continuations for this loop
 (define interpret-while
   (lambda (statement environment return break continue throw)
     (call/cc
@@ -437,6 +446,8 @@
   (lambda (class)
     (interpret-class-statement-list (get-funct-vars class) (newenvironment) 'a 'a 'a 'a)
 ))
+
+; Creates a frame for functions
 (define create-function-frame
   (lambda (env)
     (cond
@@ -447,6 +458,7 @@
     )
   )
 )
+; Creats a frame for variables
 (define create-variable-frame
   (lambda (env)
     (cond
@@ -457,7 +469,8 @@
       )
   )
 )
-
+; Creates a closure for the class and assigns its type as the parent type given
+;  If no parent type is given, it is given a type of 'Object
 (define createClassClosure
   (lambda (parse)
     (if(null? (get-extension parse))
@@ -469,15 +482,6 @@
     ))
   )
 )
-
-
-;(define reformat-environment
-  ;(lambda (env)
-    ;(cond
-      ;((null? (cadar env)) '(()()))
-      ;(#f '())
-  ;)
-;))
 
 ; create a new empty environment
 (define newenvironment
@@ -609,7 +613,8 @@
 (define extra-params
   (lambda (cname newenv param-lis lis oldenv fname return break continue throw)
     (cond
-      [(and (null? lis) (null? param-lis)) (cons (topframe (insert 'this (lookup cname oldenv) newenv)) (get-dynamic-scope-env oldenv fname))]
+      [(and (null? lis) (null? param-lis)) (cons (topframe (insert 'this (lookup cname oldenv) newenv))
+                                                 (get-dynamic-scope-env oldenv fname))]
       [(null? param-lis) (myerror "ParamError: You have to many parameters for the function")]
       [(null? lis) (myerror "Paramerror: You have too few parameters for the function")]
       [else (extra-params cname
