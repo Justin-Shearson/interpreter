@@ -617,17 +617,17 @@
 ;  pop-frame calls)
 (define add-params
   (lambda (cname fname lis env return break continue throw)
-    (extra-params (newenvironment) (car (lookup fname env)) lis env fname return break continue throw)))
+    (extra-params cname (newenvironment) (car (lookup fname env)) lis env fname return break continue throw)))
 
 ; Updates the environment to add the variables from the parameters from a function and assigns them to the
 ;  values passed to the function
 (define extra-params
-  (lambda (newenv param-lis lis oldenv fname return break continue throw)
+  (lambda (cname newenv param-lis lis oldenv fname return break continue throw)
     (cond
-      [(and (null? lis) (null? param-lis)) (cons (topframe newenv) (get-dynamic-scope-env oldenv fname))]
+      [(and (null? lis) (null? param-lis)) (cons (topframe (insert 'this cname newenv)) (get-dynamic-scope-env oldenv fname))]
       [(null? param-lis) (myerror "ParamError: You have to many parameters for the function")]
       [(null? lis) (myerror "Paramerror: You have too few parameters for the function")]
-      [else (extra-params
+      [else (extra-params cname
              (insert (car param-lis) (eval-expression (car lis) oldenv return break continue throw '()) newenv)
              (cdr param-lis)
              (cdr lis)
